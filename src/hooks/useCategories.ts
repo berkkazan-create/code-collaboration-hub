@@ -9,7 +9,12 @@ export interface Category {
   name: string;
   description: string | null;
   color: string;
+  parent_id: string | null;
   created_at: string;
+}
+
+export interface CategoryWithChildren extends Category {
+  children?: Category[];
 }
 
 export type CategoryInput = Omit<Category, 'id' | 'user_id' | 'created_at'>;
@@ -31,6 +36,27 @@ export const useCategories = () => {
     },
     enabled: !!user,
   });
+
+  // Get hierarchical structure
+  const getHierarchicalCategories = (): CategoryWithChildren[] => {
+    const categories = categoriesQuery.data ?? [];
+    const mainCategories = categories.filter(c => !c.parent_id);
+    
+    return mainCategories.map(main => ({
+      ...main,
+      children: categories.filter(c => c.parent_id === main.id)
+    }));
+  };
+
+  // Get main categories only
+  const getMainCategories = (): Category[] => {
+    return (categoriesQuery.data ?? []).filter(c => !c.parent_id);
+  };
+
+  // Get subcategories for a main category
+  const getSubcategories = (parentId: string): Category[] => {
+    return (categoriesQuery.data ?? []).filter(c => c.parent_id === parentId);
+  };
 
   const createCategory = useMutation({
     mutationFn: async (category: CategoryInput) => {
@@ -89,6 +115,9 @@ export const useCategories = () => {
 
   return {
     categories: categoriesQuery.data ?? [],
+    hierarchicalCategories: getHierarchicalCategories(),
+    mainCategories: getMainCategories(),
+    getSubcategories,
     isLoading: categoriesQuery.isLoading,
     createCategory,
     updateCategory,

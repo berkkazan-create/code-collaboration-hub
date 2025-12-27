@@ -3,7 +3,6 @@ import { useCategories, Category, CategoryInput } from '@/hooks/useCategories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Edit, Trash2, Tag } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Plus, Edit, Trash2, ChevronRight, FolderOpen, Folder } from 'lucide-react';
 
 const CATEGORY_COLORS = [
   '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444',
@@ -34,15 +45,23 @@ interface CategoryManagerProps {
 }
 
 export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: CategoryManagerProps) => {
-  const { categories, isLoading, createCategory, updateCategory, deleteCategory } = useCategories();
+  const { hierarchicalCategories, mainCategories, isLoading, createCategory, updateCategory, deleteCategory } = useCategories();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [formData, setFormData] = useState<CategoryInput>({
     name: '',
     description: '',
     color: '#10b981',
+    parent_id: null,
   });
+
+  const toggleCategory = (id: string) => {
+    setOpenCategories(prev => 
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +79,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
       name: category.name,
       description: category.description || '',
       color: category.color,
+      parent_id: category.parent_id,
     });
     setIsDialogOpen(true);
   };
@@ -71,6 +91,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
       name: '',
       description: '',
       color: '#10b981',
+      parent_id: null,
     });
   };
 
@@ -79,6 +100,16 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
       await deleteCategory.mutateAsync(deleteId);
       setDeleteId(null);
     }
+  };
+
+  const handleAddSubcategory = (parentId: string) => {
+    setFormData({
+      name: '',
+      description: '',
+      color: '#10b981',
+      parent_id: parentId,
+    });
+    setIsDialogOpen(true);
   };
 
   if (isLoading) {
@@ -93,23 +124,47 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Tag className="w-5 h-5" />
+          <FolderOpen className="w-5 h-5" />
           Kategoriler
         </h3>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={handleCloseDialog}>
+            <Button size="sm" onClick={() => {
+              setFormData({ name: '', description: '', color: '#10b981', parent_id: null });
+              setEditingCategory(null);
+            }}>
               <Plus className="w-4 h-4 mr-2" />
-              Yeni
+              Ana Kategori
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingCategory ? 'Kategori Düzenle' : 'Yeni Kategori'}
+                {editingCategory ? 'Kategori Düzenle' : formData.parent_id ? 'Alt Kategori Ekle' : 'Ana Kategori Ekle'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {!editingCategory && !formData.parent_id && (
+                <div>
+                  <Label>Üst Kategori (Opsiyonel)</Label>
+                  <Select
+                    value={formData.parent_id || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, parent_id: value === 'none' ? null : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Ana kategori olarak ekle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ana kategori olarak ekle</SelectItem>
+                      {mainCategories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Kategori Adı</Label>
                 <Input
@@ -154,48 +209,120 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
         </Dialog>
       </div>
 
-      {categories.length === 0 ? (
+      {hierarchicalCategories.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
           Henüz kategori eklenmemiş
         </p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className={`group flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-                selectedCategoryId === category.id
-                  ? 'ring-2 ring-primary'
-                  : 'hover:bg-muted'
-              }`}
-              onClick={() => onSelectCategory?.(category)}
+        <div className="space-y-2">
+          {hierarchicalCategories.map((mainCategory) => (
+            <Collapsible
+              key={mainCategory.id}
+              open={openCategories.includes(mainCategory.id)}
+              onOpenChange={() => toggleCategory(mainCategory.id)}
             >
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: category.color }}
-              />
-              <span className="text-sm font-medium">{category.name}</span>
-              <div className="hidden group-hover:flex items-center gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEdit(category);
-                  }}
-                  className="p-1 hover:bg-background rounded"
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div
+                  className={`flex items-center justify-between p-3 ${
+                    selectedCategoryId === mainCategory.id ? 'bg-primary/10' : ''
+                  }`}
                 >
-                  <Edit className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteId(category.id);
-                  }}
-                  className="p-1 hover:bg-background rounded text-destructive"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 flex-1 text-left">
+                      <ChevronRight 
+                        className={`w-4 h-4 transition-transform ${
+                          openCategories.includes(mainCategory.id) ? 'rotate-90' : ''
+                        }`}
+                      />
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: mainCategory.color }}
+                      />
+                      <span className="font-medium">{mainCategory.name}</span>
+                      {mainCategory.children && mainCategory.children.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          ({mainCategory.children.length})
+                        </span>
+                      )}
+                    </button>
+                  </CollapsibleTrigger>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => handleAddSubcategory(mainCategory.id)}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => handleEdit(mainCategory)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => setDeleteId(mainCategory.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <CollapsibleContent>
+                  {mainCategory.children && mainCategory.children.length > 0 && (
+                    <div className="border-t border-border">
+                      {mainCategory.children.map((subCategory) => (
+                        <div
+                          key={subCategory.id}
+                          className={`flex items-center justify-between p-3 pl-10 hover:bg-muted/50 cursor-pointer ${
+                            selectedCategoryId === subCategory.id ? 'bg-primary/10' : ''
+                          }`}
+                          onClick={() => onSelectCategory?.(subCategory)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Folder className="w-4 h-4 text-muted-foreground" />
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: subCategory.color }}
+                            />
+                            <span className="text-sm">{subCategory.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(subCategory);
+                              }}
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteId(subCategory.id);
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CollapsibleContent>
               </div>
-            </div>
+            </Collapsible>
           ))}
         </div>
       )}
@@ -205,7 +332,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
           <AlertDialogHeader>
             <AlertDialogTitle>Kategoriyi Sil</AlertDialogTitle>
             <AlertDialogDescription>
-              Bu kategoriyi silmek istediğinizden emin misiniz?
+              Bu kategoriyi silmek istediğinizden emin misiniz? Alt kategoriler de silinecektir.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

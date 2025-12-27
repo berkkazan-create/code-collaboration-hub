@@ -13,7 +13,7 @@ import {
   Menu,
   X,
   History,
-  Landmark,
+  Calculator,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -23,7 +23,7 @@ const navItems = [
   { href: '/stock-history', label: 'Stok Hareketleri', icon: History },
   { href: '/transactions', label: 'Maliyet Takibi', icon: TrendingUp },
   { href: '/accounts', label: 'Cari Hesaplar', icon: Users },
-  { href: '/bank-accounts', label: 'Banka Hesapları', icon: Landmark },
+  { href: '/accounting', label: 'Muhasebe', icon: Calculator },
   { href: '/reports', label: 'Raporlar', icon: FileText },
 ];
 

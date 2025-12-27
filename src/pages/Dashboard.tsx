@@ -1,12 +1,21 @@
 import { Layout } from '@/components/layout/Layout';
-import { StatCard } from '@/components/ui/stat-card';
 import { useProducts } from '@/hooks/useProducts';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
-import { Package, TrendingUp, TrendingDown, Users, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { 
+  Package, 
+  TrendingUp, 
+  TrendingDown, 
+  Users, 
+  AlertTriangle, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  RefreshCw,
+  Wallet,
+  DollarSign
+} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 const Dashboard = () => {
   const { products } = useProducts();
@@ -38,86 +47,194 @@ const Dashboard = () => {
       return sum + (t.currency === 'USD' ? convertToTRY(amount, 'USD') : amount);
     }, 0);
 
+  const netBalance = income - expense;
+
   const formatCurrency = (value: number, currency: string = 'TRY') =>
     new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(value);
 
+  const formatNumber = (value: number) =>
+    new Intl.NumberFormat('tr-TR').format(value);
+
   return (
     <Layout>
-      <div className="space-y-8">
+      <div className="space-y-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="animate-fade-in">
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">İşletmenizin genel durumu</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
+                Hoş Geldiniz
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                İşletmenizin güncel durumu
+              </p>
+            </div>
+            {rate && (
+              <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-2xl bg-card border border-border">
+                <DollarSign className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">1 USD = {rate.usdToTry.toFixed(2)} ₺</span>
+                <RefreshCw className={`w-3 h-3 text-muted-foreground ${rateLoading ? 'animate-spin' : ''}`} />
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Exchange Rate Info */}
-        {rate && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
-            <RefreshCw className={`w-4 h-4 ${rateLoading ? 'animate-spin' : ''}`} />
-            <span>1 USD = {rate.usdToTry.toFixed(2)} TRY</span>
-            <span className="text-xs">({new Date(rate.lastUpdate).toLocaleString('tr-TR')})</span>
-          </div>
-        )}
+        {/* Main Stats - Hero Style */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up">
+          {/* Net Balance - Featured */}
+          <Card className="lg:col-span-2 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/20 overflow-hidden relative">
+            <CardContent className="p-8">
+              <div className="flex items-start justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-2xl bg-primary/20 flex items-center justify-center">
+                      <Wallet className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium text-muted-foreground">Net Bakiye</span>
+                  </div>
+                  <div>
+                    <p className={`text-4xl lg:text-5xl font-bold tracking-tight ${netBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                      {formatCurrency(netBalance)}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Tüm gelir ve giderlerinizin toplamı
+                    </p>
+                  </div>
+                </div>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${netBalance >= 0 ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                  {netBalance >= 0 ? (
+                    <TrendingUp className="w-8 h-8 text-success" />
+                  ) : (
+                    <TrendingDown className="w-8 h-8 text-destructive" />
+                  )}
+                </div>
+              </div>
+              {/* Decorative element */}
+              <div className="absolute -right-20 -bottom-20 w-64 h-64 rounded-full bg-primary/5 blur-3xl" />
+            </CardContent>
+          </Card>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-          <StatCard
-            title="Toplam Ürün"
-            value={totalProducts}
-            icon={Package}
-          />
-          <div className="sm:col-span-1 lg:col-span-1">
-            <StatCard
-              title="Stok Değeri"
-              value={formatCurrency(totalStockValue)}
-              icon={TrendingUp}
-              className="h-full"
-            />
-          </div>
-          <StatCard
-            title="Toplam Gelir"
-            value={formatCurrency(income)}
-            icon={ArrowUpRight}
-            trend={{ value: 12, isPositive: true }}
-          />
-          <StatCard
-            title="Toplam Gider"
-            value={formatCurrency(expense)}
-            icon={ArrowDownRight}
-            trend={{ value: 5, isPositive: false }}
-          />
+          {/* Stock Value */}
+          <Card className="bg-card border-border hover:border-primary/30 transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-accent flex items-center justify-center">
+                  <Package className="w-5 h-5 text-accent-foreground" />
+                </div>
+                <span className="text-sm font-medium text-muted-foreground">Stok Değeri</span>
+              </div>
+              <p className="text-2xl lg:text-3xl font-bold text-foreground">
+                {formatCurrency(totalStockValue)}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {totalProducts} üründe toplam stok
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          {/* Income */}
+          <Card className="bg-card border-border group hover:border-success/30 transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl bg-success/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <ArrowUpRight className="w-4 h-4 text-success" />
+                </div>
+              </div>
+              <p className="text-xl lg:text-2xl font-bold text-foreground">
+                {formatCurrency(income)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Toplam Gelir</p>
+            </CardContent>
+          </Card>
+
+          {/* Expense */}
+          <Card className="bg-card border-border group hover:border-destructive/30 transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <ArrowDownRight className="w-4 h-4 text-destructive" />
+                </div>
+              </div>
+              <p className="text-xl lg:text-2xl font-bold text-foreground">
+                {formatCurrency(expense)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Toplam Gider</p>
+            </CardContent>
+          </Card>
+
+          {/* Customers */}
+          <Card className="bg-card border-border group hover:border-primary/30 transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Users className="w-4 h-4 text-primary" />
+                </div>
+              </div>
+              <p className="text-xl lg:text-2xl font-bold text-foreground">
+                {formatNumber(totalCustomers)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Müşteri</p>
+            </CardContent>
+          </Card>
+
+          {/* Suppliers */}
+          <Card className="bg-card border-border group hover:border-secondary-foreground/30 transition-all">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Users className="w-4 h-4 text-secondary-foreground" />
+                </div>
+              </div>
+              <p className="text-xl lg:text-2xl font-bold text-foreground">
+                {formatNumber(totalSuppliers)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Tedarikçi</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           {/* Low Stock Alert */}
-          <Card className="glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning" />
-                Düşük Stok Uyarısı
-              </CardTitle>
-              <Badge variant="secondary">{lowStockProducts.length} ürün</Badge>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-card border-border">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-warning/10 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-warning" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Düşük Stok</h3>
+                    <p className="text-xs text-muted-foreground">{lowStockProducts.length} ürün</p>
+                  </div>
+                </div>
+              </div>
               {lowStockProducts.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Düşük stoklu ürün bulunmuyor.</p>
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-3">
+                    <Package className="w-6 h-6 text-success" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Tüm stoklar yeterli seviyede</p>
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {lowStockProducts.slice(0, 5).map((product) => (
+                  {lowStockProducts.slice(0, 4).map((product) => (
                     <div
                       key={product.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div>
-                        <p className="font-medium text-foreground">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Minimum: {product.min_stock_level} {product.unit}
+                        <p className="font-medium text-foreground text-sm">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Min: {product.min_stock_level} {product.unit}
                         </p>
                       </div>
-                      <Badge variant="destructive">
+                      <div className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium">
                         {product.quantity} {product.unit}
-                      </Badge>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -125,84 +242,64 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Account Summary */}
-          <Card className="glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                Cari Hesap Özeti
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg bg-accent/50 text-center">
-                  <p className="text-3xl font-bold text-accent-foreground">{totalCustomers}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Müşteri</p>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary text-center">
-                  <p className="text-3xl font-bold text-secondary-foreground">{totalSuppliers}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Tedarikçi</p>
-                </div>
-              </div>
-              <div className="mt-4 p-4 rounded-lg bg-muted/50">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Net Bakiye</span>
-                  <span className="text-lg font-semibold text-foreground">
-                    {formatCurrency(income - expense)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Recent Transactions */}
-          <Card className="glass lg:col-span-2 animate-slide-up" style={{ animationDelay: '0.3s' }}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary" />
-                Son İşlemler
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-card border-border">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Son İşlemler</h3>
+                    <p className="text-xs text-muted-foreground">En son {Math.min(4, transactions.length)} işlem</p>
+                  </div>
+                </div>
+              </div>
               {transactions.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Henüz işlem bulunmuyor.</p>
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                    <TrendingUp className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Henüz işlem yok</p>
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {transactions.slice(0, 5).map((transaction) => (
+                  {transactions.slice(0, 4).map((transaction) => (
                     <div
                       key={transaction.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                             transaction.type === 'income' || transaction.type === 'sale'
                               ? 'bg-success/10'
                               : 'bg-destructive/10'
                           }`}
                         >
                           {transaction.type === 'income' || transaction.type === 'sale' ? (
-                            <TrendingUp className="w-5 h-5 text-success" />
+                            <ArrowUpRight className="w-4 h-4 text-success" />
                           ) : (
-                            <TrendingDown className="w-5 h-5 text-destructive" />
+                            <ArrowDownRight className="w-4 h-4 text-destructive" />
                           )}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">
+                          <p className="font-medium text-foreground text-sm">
                             {transaction.description || 'İşlem'}
                           </p>
-                          <p className="text-sm text-muted-foreground">{transaction.date}</p>
+                          <p className="text-xs text-muted-foreground">{transaction.date}</p>
                         </div>
                       </div>
                       <span
-                        className={`font-semibold ${
+                        className={`font-semibold text-sm ${
                           transaction.type === 'income' || transaction.type === 'sale'
                             ? 'text-success'
                             : 'text-destructive'
                         }`}
                       >
                         {transaction.type === 'income' || transaction.type === 'sale' ? '+' : '-'}
-                        {formatCurrency(Number(transaction.amount))}
+                        {formatCurrency(Number(transaction.amount), transaction.currency || 'TRY')}
                       </span>
                     </div>
                   ))}
