@@ -142,6 +142,45 @@ export type Database = {
           },
         ]
       }
+      data_permissions: {
+        Row: {
+          can_view_accounts: boolean
+          can_view_bank_accounts: boolean
+          can_view_categories: boolean
+          can_view_products: boolean
+          can_view_stock_movements: boolean
+          can_view_transactions: boolean
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_view_accounts?: boolean
+          can_view_bank_accounts?: boolean
+          can_view_categories?: boolean
+          can_view_products?: boolean
+          can_view_stock_movements?: boolean
+          can_view_transactions?: boolean
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_view_accounts?: boolean
+          can_view_bank_accounts?: boolean
+          can_view_categories?: boolean
+          can_view_products?: boolean
+          can_view_stock_movements?: boolean
+          can_view_transactions?: boolean
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string | null
