@@ -57,6 +57,28 @@ export const useTransactions = () => {
     },
   });
 
+  const updateTransaction = useMutation({
+    mutationFn: async ({ id, ...transaction }: Partial<Transaction> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .update(transaction)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+      toast.success('İşlem başarıyla güncellendi');
+    },
+    onError: () => {
+      toast.error('İşlem güncellenirken bir hata oluştu');
+    },
+  });
+
   const deleteTransaction = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
@@ -64,6 +86,7 @@ export const useTransactions = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       toast.success('İşlem başarıyla silindi');
     },
     onError: () => {
@@ -75,6 +98,7 @@ export const useTransactions = () => {
     transactions: transactionsQuery.data ?? [],
     isLoading: transactionsQuery.isLoading,
     createTransaction,
+    updateTransaction,
     deleteTransaction,
   };
 };
