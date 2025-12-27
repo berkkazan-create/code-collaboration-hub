@@ -18,10 +18,10 @@ export const StatCard = ({ title, value, icon: Icon, trend, className }: StatCar
   return (
     <Card className={cn('glass glass-hover animate-scale-in', className)}>
       <CardContent className="p-4 lg:p-6">
-        <div className="flex items-start justify-between gap-2">
-          <div className="space-y-1 lg:space-y-2 min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1 lg:space-y-2 min-w-0 flex-1 overflow-hidden">
             <p className="text-xs lg:text-sm font-medium text-muted-foreground truncate">{title}</p>
-            <p className="text-lg lg:text-2xl xl:text-3xl font-bold text-foreground truncate">{value}</p>
+            <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-foreground break-all leading-tight">{value}</p>
             {trend && (
               <p
                 className={cn(
