@@ -33,11 +33,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAccounts, Account, AccountInput } from '@/hooks/useAccounts';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
+import { CurrencyToggle } from '@/components/CurrencyToggle';
 import { Plus, Search, Edit, Trash2, Download, Users, Building2 } from 'lucide-react';
 
 const Accounts = () => {
   const { accounts, isLoading, createAccount, updateAccount, deleteAccount } = useAccounts();
   const { isAdmin } = useUserRole();
+  const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'customer' | 'supplier'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -135,8 +138,8 @@ const Accounts = () => {
     document.body.removeChild(link);
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+  const formatBalance = (value: number, currency: string = 'TRY') => 
+    formatCurrency(convertToDisplay(value, currency));
 
   const columns = [
     {
@@ -186,7 +189,7 @@ const Accounts = () => {
             account.balance >= 0 ? 'text-success font-medium' : 'text-destructive font-medium'
           }
         >
-          {formatCurrency(account.balance)}
+          {formatBalance(account.balance, (account as any).currency || 'TRY')}
         </span>
       ),
     },
@@ -223,6 +226,12 @@ const Accounts = () => {
             <p className="text-muted-foreground mt-1">Müşteri ve tedarikçilerinizi yönetin</p>
           </div>
           <div className="flex gap-2">
+            <CurrencyToggle
+              displayCurrency={displayCurrency}
+              onToggle={toggleCurrency}
+              rate={rate}
+              isLoading={rateLoading}
+            />
             <Button variant="outline" onClick={exportToCSV}>
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Dışa Aktar</span>
