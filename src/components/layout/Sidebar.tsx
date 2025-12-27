@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import logo from '@/assets/logo.png';
 import {
   LayoutDashboard,
   Package,
@@ -48,10 +49,7 @@ export const Sidebar = () => {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Package className="w-4 h-4 text-primary" />
-          </div>
-          <span className="font-semibold text-foreground">StokTakip</span>
+          <img src={logo} alt="Servisium" className="h-8 w-auto" />
         </div>
         <Button
           variant="ghost"
@@ -81,13 +79,7 @@ export const Sidebar = () => {
           {/* Logo */}
           <div className="p-6 border-b border-border hidden lg:block">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Package className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="font-bold text-lg text-foreground">StokTakip</h1>
-                <p className="text-xs text-muted-foreground">İş Yönetimi</p>
-              </div>
+              <img src={logo} alt="Servisium" className="h-10 w-auto" />
             </div>
           </div>
 
