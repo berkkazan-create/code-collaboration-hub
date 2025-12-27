@@ -38,13 +38,12 @@ import {
 } from '@/components/ui/sheet';
 import { useProducts, Product, ProductInput } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
-import { CategoryManager } from '@/components/CategoryManager';
+
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { StockMovementHistory } from '@/components/StockMovementHistory';
 import { Plus, Search, Edit, Trash2, Download, Package, ScanBarcode, Tag, History, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useDataPermissions } from '@/hooks/useDataPermissions';
 import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
 import { CurrencyToggle } from '@/components/CurrencyToggle';
 
@@ -52,8 +51,6 @@ const Products = () => {
   const { products, isLoading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { categories } = useCategories();
   const { isAdmin } = useUserRole();
-  const { myPermissions } = useDataPermissions();
-  const canViewCategories = isAdmin || myPermissions?.can_view_categories !== false;
   const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -483,12 +480,6 @@ const Products = () => {
           </div>
         </div>
 
-        {/* Categories - only show if user has permission */}
-        {canViewCategories && (
-          <div className="animate-fade-in" style={{ animationDelay: '0.05s' }}>
-            <CategoryManager />
-          </div>
-        )}
 
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4 animate-fade-in" style={{ animationDelay: '0.1s' }}>
