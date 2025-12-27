@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -23,6 +25,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
   Shield,
@@ -39,6 +51,12 @@ import {
   UserPlus,
   Settings,
   Activity,
+  Plus,
+  Edit,
+  Trash2,
+  Database,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface UserWithDetails {
@@ -47,6 +65,7 @@ interface UserWithDetails {
   fullName: string;
   isAdmin: boolean;
   createdAt: string;
+  lastSignIn?: string;
   permissions: {
     id?: string;
     can_view_products: boolean;
@@ -55,7 +74,7 @@ interface UserWithDetails {
     can_view_bank_accounts: boolean;
     can_view_stock_movements: boolean;
     can_view_categories: boolean;
-  };
+  } | null;
 }
 
 const AdminPanel = () => {
@@ -66,72 +85,127 @@ const AdminPanel = () => {
   const [saving, setSaving] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserWithDetails | null>(null);
   const [permDialogOpen, setPermDialogOpen] = useState(false);
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserWithDetails | null>(null);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const [userForm, setUserForm] = useState({
+    email: '',
+    password: '',
+    fullName: '',
+  });
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'list' },
+      });
+
+      if (error) throw error;
+      setUsers(data.users || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Kullanıcılar yüklenirken hata oluştu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, created_at');
-
-        if (profilesError) throw profilesError;
-
-        const { data: roles, error: rolesError } = await supabase
-          .from('user_roles')
-          .select('user_id, role');
-
-        if (rolesError) throw rolesError;
-
-        const { data: perms, error: permsError } = await supabase
-          .from('data_permissions')
-          .select('*');
-
-        if (permsError) throw permsError;
-
-        const usersWithDetails: UserWithDetails[] = profiles.map((profile) => {
-          const userRole = roles.find((r) => r.user_id === profile.user_id);
-          const userPerm = perms?.find((p) => p.user_id === profile.user_id);
-
-          return {
-            id: profile.user_id,
-            email: profile.full_name || 'Kullanıcı',
-            fullName: profile.full_name || 'İsimsiz Kullanıcı',
-            isAdmin: userRole?.role === 'admin',
-            createdAt: profile.created_at,
-            permissions: userPerm
-              ? {
-                  id: userPerm.id,
-                  can_view_products: userPerm.can_view_products,
-                  can_view_transactions: userPerm.can_view_transactions,
-                  can_view_accounts: userPerm.can_view_accounts,
-                  can_view_bank_accounts: userPerm.can_view_bank_accounts,
-                  can_view_stock_movements: userPerm.can_view_stock_movements,
-                  can_view_categories: userPerm.can_view_categories,
-                }
-              : {
-                  can_view_products: true,
-                  can_view_transactions: true,
-                  can_view_accounts: true,
-                  can_view_bank_accounts: true,
-                  can_view_stock_movements: true,
-                  can_view_categories: true,
-                },
-          };
-        });
-
-        setUsers(usersWithDetails);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        toast.error('Kullanıcılar yüklenirken hata oluştu');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (isAdmin) {
       fetchUsers();
     }
   }, [isAdmin]);
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving('create');
+    try {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        body: {
+          action: 'create',
+          email: userForm.email,
+          password: userForm.password,
+          fullName: userForm.fullName,
+        },
+      });
+
+      if (error) throw error;
+      toast.success('Kullanıcı başarıyla oluşturuldu');
+      setUserDialogOpen(false);
+      setUserForm({ email: '', password: '', fullName: '' });
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || 'Kullanıcı oluşturulurken hata oluştu');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setSaving('update');
+    try {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        body: {
+          action: 'update',
+          userId: editingUser.id,
+          email: userForm.email !== editingUser.email ? userForm.email : undefined,
+          password: userForm.password || undefined,
+          fullName: userForm.fullName,
+        },
+      });
+
+      if (error) throw error;
+      toast.success('Kullanıcı başarıyla güncellendi');
+      setUserDialogOpen(false);
+      setEditingUser(null);
+      setUserForm({ email: '', password: '', fullName: '' });
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || 'Kullanıcı güncellenirken hata oluştu');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteUserId) return;
+    try {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'delete', userId: deleteUserId },
+      });
+
+      if (error) throw error;
+      toast.success('Kullanıcı başarıyla silindi');
+      setDeleteUserId(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || 'Kullanıcı silinirken hata oluştu');
+    }
+  };
+
+  const handleResetDemoData = async () => {
+    setIsResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-demo-data');
+
+      if (error) throw error;
+      toast.success(data.message || 'Demo veriler başarıyla oluşturuldu');
+      setResetDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Demo veriler oluşturulurken hata oluştu');
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const handlePermissionChange = (
     userId: string,
@@ -141,18 +215,19 @@ const AdminPanel = () => {
     setUsers((prev) =>
       prev.map((user) =>
         user.id === userId
-          ? { ...user, permissions: { ...user.permissions, [field]: value } }
+          ? { ...user, permissions: { ...user.permissions!, [field]: value } }
           : user
       )
     );
     if (selectedUser?.id === userId) {
       setSelectedUser((prev) =>
-        prev ? { ...prev, permissions: { ...prev.permissions, [field]: value } } : null
+        prev ? { ...prev, permissions: { ...prev.permissions!, [field]: value } } : null
       );
     }
   };
 
   const savePermissions = async (user: UserWithDetails) => {
+    if (!user.permissions) return;
     setSaving(user.id);
     try {
       const permData = {
@@ -196,12 +271,31 @@ const AdminPanel = () => {
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('tr-TR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
+  };
+
+  const openEditUser = (user: UserWithDetails) => {
+    setEditingUser(user);
+    setUserForm({
+      email: user.email,
+      password: '',
+      fullName: user.fullName,
+    });
+    setUserDialogOpen(true);
+  };
+
+  const openNewUser = () => {
+    setEditingUser(null);
+    setUserForm({ email: '', password: '', fullName: '' });
+    setUserDialogOpen(true);
   };
 
   if (roleLoading || isLoading) {
@@ -233,13 +327,25 @@ const AdminPanel = () => {
     <Layout>
       <div className="space-y-8 max-w-7xl mx-auto">
         <div className="animate-fade-in">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Shield className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground tracking-tight">Admin Paneli</h1>
+                <p className="text-muted-foreground">Kullanıcıları ve sistemi yönetin</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground tracking-tight">Admin Paneli</h1>
-              <p className="text-muted-foreground">Kullanıcıları ve izinleri yönetin</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setResetDialogOpen(true)}>
+                <Database className="w-4 h-4 mr-2" />
+                Demo Verilerle Başlat
+              </Button>
+              <Button onClick={openNewUser}>
+                <Plus className="w-4 h-4 mr-2" />
+                Yeni Kullanıcı
+              </Button>
             </div>
           </div>
         </div>
@@ -289,9 +395,14 @@ const AdminPanel = () => {
 
           <TabsContent value="users" className="mt-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Kullanıcı Listesi</CardTitle>
-                <CardDescription>Tüm kullanıcıları görüntüleyin ve yönetin</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Kullanıcı Listesi</CardTitle>
+                  <CardDescription>Tüm kullanıcıları görüntüleyin ve yönetin</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={fetchUsers}>
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -300,7 +411,8 @@ const AdminPanel = () => {
                       <TableRow>
                         <TableHead>Kullanıcı</TableHead>
                         <TableHead>Rol</TableHead>
-                        <TableHead>Kayıt Tarihi</TableHead>
+                        <TableHead className="hidden md:table-cell">Son Giriş</TableHead>
+                        <TableHead className="hidden md:table-cell">Kayıt Tarihi</TableHead>
                         <TableHead className="text-right">İşlemler</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -311,12 +423,12 @@ const AdminPanel = () => {
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
                                 <span className="text-sm font-medium text-primary">
-                                  {user.fullName[0]?.toUpperCase() || 'U'}
+                                  {user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
                                 </span>
                               </div>
                               <div>
-                                <p className="font-medium">{user.fullName}</p>
-                                <p className="text-xs text-muted-foreground">{user.id.slice(0, 8)}...</p>
+                                <p className="font-medium">{user.fullName || 'İsimsiz'}</p>
+                                <p className="text-xs text-muted-foreground">{user.email}</p>
                               </div>
                             </div>
                           </TableCell>
@@ -330,42 +442,74 @@ const AdminPanel = () => {
                               <Badge variant="secondary">Kullanıcı</Badge>
                             )}
                           </TableCell>
-                          <TableCell>{formatDate(user.createdAt)}</TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                            {formatDate(user.lastSignIn)}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                            {formatDate(user.createdAt)}
+                          </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1">
                               {!user.isAdmin && (
                                 <Button
-                                  size="sm"
-                                  variant="outline"
+                                  size="icon"
+                                  variant="ghost"
                                   onClick={() => {
-                                    setSelectedUser(user);
+                                    setSelectedUser({
+                                      ...user,
+                                      permissions: user.permissions || {
+                                        can_view_products: true,
+                                        can_view_transactions: true,
+                                        can_view_accounts: true,
+                                        can_view_bank_accounts: true,
+                                        can_view_stock_movements: true,
+                                        can_view_categories: true,
+                                      },
+                                    });
                                     setPermDialogOpen(true);
                                   }}
+                                  title="İzinler"
                                 >
-                                  <Settings className="w-4 h-4 mr-1" />
-                                  İzinler
+                                  <Settings className="w-4 h-4" />
                                 </Button>
                               )}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => openEditUser(user)}
+                                title="Düzenle"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
                               {user.isAdmin ? (
                                 <Button
-                                  size="sm"
-                                  variant="outline"
+                                  size="icon"
+                                  variant="ghost"
                                   className="text-destructive hover:text-destructive"
                                   onClick={() => toggleAdminRole(user.id, false)}
+                                  title="Admin Kaldır"
                                 >
-                                  <UserMinus className="w-4 h-4 mr-1" />
-                                  Admin Kaldır
+                                  <UserMinus className="w-4 h-4" />
                                 </Button>
                               ) : (
                                 <Button
-                                  size="sm"
-                                  variant="outline"
+                                  size="icon"
+                                  variant="ghost"
                                   onClick={() => toggleAdminRole(user.id, true)}
+                                  title="Admin Yap"
                                 >
-                                  <UserPlus className="w-4 h-4 mr-1" />
-                                  Admin Yap
+                                  <UserPlus className="w-4 h-4" />
                                 </Button>
                               )}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setDeleteUserId(user.id)}
+                                title="Sil"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -399,16 +543,65 @@ const AdminPanel = () => {
           </TabsContent>
         </Tabs>
 
+        {/* User Create/Edit Dialog */}
+        <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingUser ? 'Kullanıcıyı Düzenle' : 'Yeni Kullanıcı'}</DialogTitle>
+              <DialogDescription>
+                {editingUser ? 'Kullanıcı bilgilerini güncelleyin' : 'Yeni bir kullanıcı oluşturun'}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="space-y-4">
+              <div>
+                <Label>Ad Soyad</Label>
+                <Input
+                  value={userForm.fullName}
+                  onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label>E-posta</Label>
+                <Input
+                  type="email"
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label>{editingUser ? 'Yeni Şifre (boş bırakılabilir)' : 'Şifre'}</Label>
+                <Input
+                  type="password"
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  required={!editingUser}
+                  minLength={6}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setUserDialogOpen(false)}>
+                  İptal
+                </Button>
+                <Button type="submit" disabled={saving !== null}>
+                  {saving ? 'Kaydediliyor...' : editingUser ? 'Güncelle' : 'Oluştur'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Permissions Dialog */}
         <Dialog open={permDialogOpen} onOpenChange={setPermDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Kullanıcı İzinleri</DialogTitle>
               <DialogDescription>
-                {selectedUser?.fullName} için veri erişim izinlerini düzenleyin
+                {selectedUser?.fullName || selectedUser?.email} için veri erişim izinlerini düzenleyin
               </DialogDescription>
             </DialogHeader>
-            {selectedUser && (
+            {selectedUser && selectedUser.permissions && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-2">
@@ -482,27 +675,72 @@ const AdminPanel = () => {
                     }
                   />
                 </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" onClick={() => setPermDialogOpen(false)}>
-                    İptal
-                  </Button>
-                  <Button
-                    onClick={() => savePermissions(selectedUser)}
-                    disabled={saving === selectedUser.id}
-                  >
-                    {saving === selectedUser.id ? (
-                      <div className="animate-spin w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full mr-2" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
-                    )}
-                    Kaydet
+                <div className="flex justify-end pt-4">
+                  <Button onClick={() => savePermissions(selectedUser)} disabled={saving === selectedUser.id}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {saving === selectedUser.id ? 'Kaydediliyor...' : 'Kaydet'}
                   </Button>
                 </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete User Confirmation */}
+        <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Kullanıcıyı Sil</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bu kullanıcıyı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground">
+                Sil
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Reset Demo Data Confirmation */}
+        <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-warning" />
+                Tüm Verileri Sıfırla
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Bu işlem TÜM mevcut verilerinizi silecek ve demo verileri ile değiştirecektir. 
+                Kategoriler, ürünler, hesaplar, banka hesapları, işlemler ve stok hareketleri sıfırlanacak.
+                <br /><br />
+                <strong className="text-destructive">Bu işlem geri alınamaz!</strong>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleResetDemoData} 
+                className="bg-warning text-warning-foreground hover:bg-warning/90"
+                disabled={isResetting}
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    İşleniyor...
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4 mr-2" />
+                    Sıfırla ve Demo Başlat
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
