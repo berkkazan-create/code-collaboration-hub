@@ -38,6 +38,8 @@ import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useStockMovements } from '@/hooks/useStockMovements';
 import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard, Edit, Package, Calculator, DollarSign } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
+import { CurrencyToggle } from '@/components/CurrencyToggle';
 
 interface TransactionFormData extends TransactionInput {
   bank_account_id?: string | null;
@@ -50,6 +52,7 @@ const Transactions = () => {
   const { bankAccounts } = useBankAccounts();
   const { createMovement } = useStockMovements();
   const { isAdmin } = useUserRole();
+  const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -205,8 +208,8 @@ const Transactions = () => {
     document.body.removeChild(link);
   };
 
-  const formatCurrency = (value: number, currency: string = 'TRY') =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(value);
+  const formatAmount = (value: number, originalCurrency: string = 'TRY') => 
+    formatCurrency(convertToDisplay(value, originalCurrency));
 
   const typeLabels: Record<string, string> = {
     income: 'Gelir',
@@ -287,7 +290,7 @@ const Transactions = () => {
         return (
           <span className={isIncome ? 'text-success font-semibold' : 'text-destructive font-semibold'}>
             {isIncome ? '+' : '-'}
-            {formatCurrency(Number(transaction.amount), transaction.currency || 'TRY')}
+            {formatAmount(Number(transaction.amount), transaction.currency || 'TRY')}
           </span>
         );
       },
@@ -325,6 +328,12 @@ const Transactions = () => {
             <p className="text-muted-foreground mt-1">Gelir ve giderlerinizi takip edin</p>
           </div>
           <div className="flex gap-2">
+            <CurrencyToggle
+              displayCurrency={displayCurrency}
+              onToggle={toggleCurrency}
+              rate={rate}
+              isLoading={rateLoading}
+            />
             <Button variant="outline" onClick={exportToCSV}>
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Dışa Aktar</span>

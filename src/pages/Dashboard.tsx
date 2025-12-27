@@ -2,7 +2,8 @@ import { Layout } from '@/components/layout/Layout';
 import { useProducts } from '@/hooks/useProducts';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
+import { CurrencyToggle } from '@/components/CurrencyToggle';
 import { 
   Package, 
   TrendingUp, 
@@ -11,9 +12,7 @@ import {
   AlertTriangle, 
   ArrowUpRight, 
   ArrowDownRight,
-  RefreshCw,
   Wallet,
-  DollarSign
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -21,7 +20,7 @@ const Dashboard = () => {
   const { products } = useProducts();
   const { accounts } = useAccounts();
   const { transactions } = useTransactions();
-  const { rate, isLoading: rateLoading, convertToTRY } = useExchangeRate();
+  const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
 
   // Calculate stats
   const totalProducts = products.length;
@@ -38,19 +37,16 @@ const Dashboard = () => {
     .filter((t) => t.type === 'income' || t.type === 'sale')
     .reduce((sum, t) => {
       const amount = Number(t.amount);
-      return sum + (t.currency === 'USD' ? convertToTRY(amount, 'USD') : amount);
+      return sum + convertToDisplay(amount, t.currency || 'TRY');
     }, 0);
   const expense = transactions
     .filter((t) => t.type === 'expense' || t.type === 'purchase')
     .reduce((sum, t) => {
       const amount = Number(t.amount);
-      return sum + (t.currency === 'USD' ? convertToTRY(amount, 'USD') : amount);
+      return sum + convertToDisplay(amount, t.currency || 'TRY');
     }, 0);
 
   const netBalance = income - expense;
-
-  const formatCurrency = (value: number, currency: string = 'TRY') =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(value);
 
   const formatNumber = (value: number) =>
     new Intl.NumberFormat('tr-TR').format(value);
@@ -69,13 +65,12 @@ const Dashboard = () => {
                 İşletmenizin güncel durumu
               </p>
             </div>
-            {rate && (
-              <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-2xl bg-card border border-border">
-                <DollarSign className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">1 USD = {rate.usdToTry.toFixed(2)} ₺</span>
-                <RefreshCw className={`w-3 h-3 text-muted-foreground ${rateLoading ? 'animate-spin' : ''}`} />
-              </div>
-            )}
+            <CurrencyToggle
+              displayCurrency={displayCurrency}
+              onToggle={toggleCurrency}
+              rate={rate}
+              isLoading={rateLoading}
+            />
           </div>
         </div>
 
@@ -124,7 +119,7 @@ const Dashboard = () => {
                 <span className="text-sm font-medium text-muted-foreground">Stok Değeri</span>
               </div>
               <p className="text-2xl lg:text-3xl font-bold text-foreground">
-                {formatCurrency(totalStockValue)}
+                {formatCurrency(convertToDisplay(totalStockValue, 'TRY'))}
               </p>
               <p className="text-sm text-muted-foreground mt-2">
                 {totalProducts} üründe toplam stok
@@ -291,16 +286,16 @@ const Dashboard = () => {
                           <p className="text-xs text-muted-foreground">{transaction.date}</p>
                         </div>
                       </div>
-                      <span
-                        className={`font-semibold text-sm ${
-                          transaction.type === 'income' || transaction.type === 'sale'
-                            ? 'text-success'
-                            : 'text-destructive'
-                        }`}
-                      >
-                        {transaction.type === 'income' || transaction.type === 'sale' ? '+' : '-'}
-                        {formatCurrency(Number(transaction.amount), transaction.currency || 'TRY')}
-                      </span>
+                        <span
+                          className={`font-semibold text-sm ${
+                            transaction.type === 'income' || transaction.type === 'sale'
+                              ? 'text-success'
+                              : 'text-destructive'
+                          }`}
+                        >
+                          {transaction.type === 'income' || transaction.type === 'sale' ? '+' : '-'}
+                          {formatCurrency(convertToDisplay(Number(transaction.amount), transaction.currency || 'TRY'))}
+                        </span>
                     </div>
                   ))}
                 </div>

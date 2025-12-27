@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
+import { CurrencyToggle } from '@/components/CurrencyToggle';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { useMonthlyStats } from '@/hooks/useMonthlyStats';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,8 +41,6 @@ import {
   TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
-  DollarSign,
-  RefreshCw,
   Banknote,
   BarChart3,
 } from 'lucide-react';
@@ -59,7 +58,7 @@ import {
 const Accounting = () => {
   const { bankAccounts, createBankAccount, isLoading: bankLoading } = useBankAccounts();
   const { transactions, isLoading: transLoading } = useTransactions();
-  const { rate, isLoading: rateLoading, convertToTRY } = useExchangeRate();
+  const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
   const { cashBalance, cashIncome, cashExpense, cashTransactions } = useCashRegister();
   const { monthlyData } = useMonthlyStats(6);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -76,25 +75,22 @@ const Accounting = () => {
   // Calculate totals
   const totalBankBalance = bankAccounts.reduce((sum, acc) => {
     const balance = Number(acc.balance);
-    return sum + (acc.currency === 'USD' ? convertToTRY(balance, 'USD') : balance);
+    return sum + convertToDisplay(balance, acc.currency || 'TRY');
   }, 0);
 
   const totalIncome = transactions
     .filter((t) => t.type === 'income' || t.type === 'sale')
     .reduce((sum, t) => {
       const amount = Number(t.amount);
-      return sum + (t.currency === 'USD' ? convertToTRY(amount, 'USD') : amount);
+      return sum + convertToDisplay(amount, t.currency || 'TRY');
     }, 0);
 
   const totalExpense = transactions
     .filter((t) => t.type === 'expense' || t.type === 'purchase')
     .reduce((sum, t) => {
       const amount = Number(t.amount);
-      return sum + (t.currency === 'USD' ? convertToTRY(amount, 'USD') : amount);
+      return sum + convertToDisplay(amount, t.currency || 'TRY');
     }, 0);
-
-  const formatCurrency = (value: number, currency: string = 'TRY') =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(value);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,13 +127,12 @@ const Accounting = () => {
             <p className="text-muted-foreground mt-1">Banka hesapları, nakit kasa ve finansal işlemler</p>
           </div>
           <div className="flex items-center gap-3">
-            {rate && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-card border border-border">
-                <DollarSign className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">1 USD = {rate.usdToTry.toFixed(2)} ₺</span>
-                <RefreshCw className={`w-3 h-3 text-muted-foreground ${rateLoading ? 'animate-spin' : ''}`} />
-              </div>
-            )}
+            <CurrencyToggle
+              displayCurrency={displayCurrency}
+              onToggle={toggleCurrency}
+              rate={rate}
+              isLoading={rateLoading}
+            />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -243,7 +238,7 @@ const Accounting = () => {
                 </div>
                 <span className="text-sm font-medium text-muted-foreground">Nakit Kasa</span>
               </div>
-              <p className="text-2xl font-bold text-foreground">{formatCurrency(cashBalance)}</p>
+              <p className="text-2xl font-bold text-foreground">{formatCurrency(convertToDisplay(cashBalance, 'TRY'))}</p>
               <p className="text-sm text-muted-foreground mt-1">{cashTransactions.length} işlem</p>
             </CardContent>
           </Card>
@@ -391,7 +386,7 @@ const Accounting = () => {
                     <span className="text-sm text-muted-foreground">Nakit Bakiye</span>
                     <Banknote className="w-4 h-4 text-warning" />
                   </div>
-                  <p className="text-xl font-bold mt-2">{formatCurrency(cashBalance)}</p>
+                  <p className="text-xl font-bold mt-2">{formatCurrency(convertToDisplay(cashBalance, 'TRY'))}</p>
                 </CardContent>
               </Card>
               <Card className="bg-card border-border">
@@ -400,7 +395,7 @@ const Accounting = () => {
                     <span className="text-sm text-muted-foreground">Nakit Gelir</span>
                     <ArrowUpRight className="w-4 h-4 text-success" />
                   </div>
-                  <p className="text-xl font-bold mt-2 text-success">{formatCurrency(cashIncome)}</p>
+                  <p className="text-xl font-bold mt-2 text-success">{formatCurrency(convertToDisplay(cashIncome, 'TRY'))}</p>
                 </CardContent>
               </Card>
               <Card className="bg-card border-border">
@@ -409,7 +404,7 @@ const Accounting = () => {
                     <span className="text-sm text-muted-foreground">Nakit Gider</span>
                     <ArrowDownRight className="w-4 h-4 text-destructive" />
                   </div>
-                  <p className="text-xl font-bold mt-2 text-destructive">{formatCurrency(cashExpense)}</p>
+                  <p className="text-xl font-bold mt-2 text-destructive">{formatCurrency(convertToDisplay(cashExpense, 'TRY'))}</p>
                 </CardContent>
               </Card>
             </div>

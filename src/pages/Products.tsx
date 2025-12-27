@@ -44,11 +44,14 @@ import { StockMovementHistory } from '@/components/StockMovementHistory';
 import { Plus, Search, Edit, Trash2, Download, Package, ScanBarcode, Tag, History, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
+import { CurrencyToggle } from '@/components/CurrencyToggle';
 
 const Products = () => {
   const { products, isLoading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { categories } = useCategories();
   const { isAdmin } = useUserRole();
+  const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -198,8 +201,7 @@ const Products = () => {
     document.body.removeChild(link);
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+  const formatPrice = (value: number) => formatCurrency(convertToDisplay(value, 'TRY'));
 
   const columns = [
     {
@@ -237,13 +239,13 @@ const Products = () => {
     {
       key: 'purchase_price',
       header: 'Alış Fiyatı',
-      render: (product: Product) => formatCurrency(product.purchase_price),
+      render: (product: Product) => formatPrice(product.purchase_price),
       className: 'hidden md:table-cell',
     },
     {
       key: 'sale_price',
       header: 'Satış Fiyatı',
-      render: (product: Product) => formatCurrency(product.sale_price),
+      render: (product: Product) => formatPrice(product.sale_price),
     },
     {
       key: 'category',
@@ -308,6 +310,12 @@ const Products = () => {
             <p className="text-muted-foreground mt-1">Ürünlerinizi yönetin</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <CurrencyToggle
+              displayCurrency={displayCurrency}
+              onToggle={toggleCurrency}
+              rate={rate}
+              isLoading={rateLoading}
+            />
             <Button variant="outline" onClick={addDummyData} disabled={isAddingDummy}>
               <Database className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">{isAddingDummy ? 'Ekleniyor...' : 'Demo Veri'}</span>
