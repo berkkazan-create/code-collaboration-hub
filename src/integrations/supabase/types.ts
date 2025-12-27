@@ -59,6 +59,48 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_accounts: {
+        Row: {
+          account_number: string | null
+          balance: number
+          bank_name: string | null
+          created_at: string
+          currency: string | null
+          iban: string | null
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number?: string | null
+          balance?: number
+          bank_name?: string | null
+          created_at?: string
+          currency?: string | null
+          iban?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string | null
+          balance?: number
+          bank_name?: string | null
+          created_at?: string
+          currency?: string | null
+          iban?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string | null
@@ -215,6 +257,7 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          bank_account_id: string | null
           created_at: string
           date: string
           description: string | null
@@ -228,6 +271,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           amount: number
+          bank_account_id?: string | null
           created_at?: string
           date?: string
           description?: string | null
@@ -241,6 +285,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           amount?: number
+          bank_account_id?: string | null
           created_at?: string
           date?: string
           description?: string | null
@@ -257,6 +302,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
           {

@@ -30,23 +30,30 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useTransactions, TransactionInput } from '@/hooks/useTransactions';
+import { useTransactions, TransactionInput, Transaction } from '@/hooks/useTransactions';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useProducts } from '@/hooks/useProducts';
-import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard } from 'lucide-react';
+import { useBankAccounts } from '@/hooks/useBankAccounts';
+import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard, Edit } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
+interface TransactionFormData extends TransactionInput {
+  bank_account_id?: string | null;
+}
+
 const Transactions = () => {
-  const { transactions, isLoading, createTransaction, deleteTransaction } = useTransactions();
+  const { transactions, isLoading, createTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { accounts } = useAccounts();
   const { products } = useProducts();
+  const { bankAccounts } = useBankAccounts();
   const { isAdmin } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<TransactionInput>({
+  const [formData, setFormData] = useState<TransactionFormData>({
     account_id: null,
     product_id: null,
     type: 'income',
@@ -55,6 +62,7 @@ const Transactions = () => {
     description: '',
     date: new Date().toISOString().split('T')[0],
     payment_method: 'cash',
+    bank_account_id: null,
   });
 
   const filteredTransactions = transactions.filter((t) => {
@@ -69,12 +77,33 @@ const Transactions = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createTransaction.mutateAsync(formData);
+    if (editingTransaction) {
+      await updateTransaction.mutateAsync({ id: editingTransaction.id, ...formData });
+    } else {
+      await createTransaction.mutateAsync(formData as TransactionInput);
+    }
     handleCloseDialog();
+  };
+
+  const handleEdit = (transaction: any) => {
+    setEditingTransaction(transaction);
+    setFormData({
+      account_id: transaction.account_id,
+      product_id: transaction.product_id,
+      type: transaction.type,
+      amount: Number(transaction.amount),
+      quantity: transaction.quantity,
+      description: transaction.description || '',
+      date: transaction.date,
+      payment_method: transaction.payment_method || 'cash',
+      bank_account_id: transaction.bank_account_id,
+    });
+    setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
+    setEditingTransaction(null);
     setFormData({
       account_id: null,
       product_id: null,
@@ -84,6 +113,7 @@ const Transactions = () => {
       description: '',
       date: new Date().toISOString().split('T')[0],
       payment_method: 'cash',
+      bank_account_id: null,
     });
   };
 
@@ -209,6 +239,9 @@ const Transactions = () => {
       header: '',
       render: (transaction: any) => (
         <div className="flex items-center gap-2 justify-end">
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(transaction)}>
+            <Edit className="w-4 h-4" />
+          </Button>
           {isAdmin && (
             <Button
               variant="ghost"
@@ -245,9 +278,9 @@ const Transactions = () => {
                   <span className="hidden sm:inline">Yeni İşlem</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
+              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Yeni İşlem Ekle</DialogTitle>
+                  <DialogTitle>{editingTransaction ? 'İşlemi Düzenle' : 'Yeni İşlem Ekle'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -315,7 +348,7 @@ const Transactions = () => {
                       <Select
                         value={formData.payment_method}
                         onValueChange={(value: 'cash' | 'bank') =>
-                          setFormData({ ...formData, payment_method: value })
+                          setFormData({ ...formData, payment_method: value, bank_account_id: value === 'cash' ? null : formData.bank_account_id })
                         }
                       >
                         <SelectTrigger>
@@ -337,6 +370,29 @@ const Transactions = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    {formData.payment_method === 'bank' && (
+                      <div className="col-span-2">
+                        <Label>Banka Hesabı *</Label>
+                        <Select
+                          value={formData.bank_account_id || 'none'}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, bank_account_id: value === 'none' ? null : value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seçiniz" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Seçilmedi</SelectItem>
+                            {bankAccounts.map((bankAccount) => (
+                              <SelectItem key={bankAccount.id} value={bankAccount.id}>
+                                {bankAccount.name} ({bankAccount.bank_name})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="col-span-2">
                       <Label>Ürün</Label>
                       <Select
@@ -371,7 +427,7 @@ const Transactions = () => {
                     <Button type="button" variant="outline" onClick={handleCloseDialog}>
                       İptal
                     </Button>
-                    <Button type="submit">Ekle</Button>
+                    <Button type="submit">{editingTransaction ? 'Güncelle' : 'Ekle'}</Button>
                   </div>
                 </form>
               </DialogContent>
