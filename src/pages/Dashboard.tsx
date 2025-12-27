@@ -3,7 +3,8 @@ import { StatCard } from '@/components/ui/stat-card';
 import { useProducts } from '@/hooks/useProducts';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
-import { Package, TrendingUp, TrendingDown, Users, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { Package, TrendingUp, TrendingDown, Users, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -11,6 +12,7 @@ const Dashboard = () => {
   const { products } = useProducts();
   const { accounts } = useAccounts();
   const { transactions } = useTransactions();
+  const { rate, isLoading: rateLoading, convertToTRY } = useExchangeRate();
 
   // Calculate stats
   const totalProducts = products.length;
@@ -22,15 +24,22 @@ const Dashboard = () => {
   const totalCustomers = accounts.filter((a) => a.type === 'customer').length;
   const totalSuppliers = accounts.filter((a) => a.type === 'supplier').length;
 
+  // Calculate income/expense with currency conversion
   const income = transactions
     .filter((t) => t.type === 'income' || t.type === 'sale')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => {
+      const amount = Number(t.amount);
+      return sum + (t.currency === 'USD' ? convertToTRY(amount, 'USD') : amount);
+    }, 0);
   const expense = transactions
     .filter((t) => t.type === 'expense' || t.type === 'purchase')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => {
+      const amount = Number(t.amount);
+      return sum + (t.currency === 'USD' ? convertToTRY(amount, 'USD') : amount);
+    }, 0);
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+  const formatCurrency = (value: number, currency: string = 'TRY') =>
+    new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(value);
 
   return (
     <Layout>
@@ -41,6 +50,15 @@ const Dashboard = () => {
           <p className="text-muted-foreground mt-1">İşletmenizin genel durumu</p>
         </div>
 
+        {/* Exchange Rate Info */}
+        {rate && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
+            <RefreshCw className={`w-4 h-4 ${rateLoading ? 'animate-spin' : ''}`} />
+            <span>1 USD = {rate.usdToTry.toFixed(2)} TRY</span>
+            <span className="text-xs">({new Date(rate.lastUpdate).toLocaleString('tr-TR')})</span>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <StatCard
@@ -48,11 +66,14 @@ const Dashboard = () => {
             value={totalProducts}
             icon={Package}
           />
-          <StatCard
-            title="Stok Değeri"
-            value={formatCurrency(totalStockValue)}
-            icon={TrendingUp}
-          />
+          <div className="sm:col-span-1 lg:col-span-1">
+            <StatCard
+              title="Stok Değeri"
+              value={formatCurrency(totalStockValue)}
+              icon={TrendingUp}
+              className="h-full"
+            />
+          </div>
           <StatCard
             title="Toplam Gelir"
             value={formatCurrency(income)}
