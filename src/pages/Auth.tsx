@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Package, TrendingUp, Users, Loader2 } from 'lucide-react';
 import { z } from 'zod';
+import logo from '@/assets/logo.png';
 
 const authSchema = z.object({
   email: z.string().email('Geçerli bir e-posta adresi giriniz'),
@@ -93,10 +94,9 @@ const Auth = () => {
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo & Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
-            <Package className="w-8 h-8 text-primary" />
+          <div className="flex justify-center mb-4">
+            <img src={logo} alt="Servisium" className="h-12 w-auto" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">StokTakip</h1>
           <p className="text-muted-foreground mt-2">İşletmenizi yönetin</p>
         </div>
 
