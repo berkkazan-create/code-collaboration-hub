@@ -144,6 +144,16 @@ export type Database = {
       }
       data_permissions: {
         Row: {
+          can_delete_accounts: boolean
+          can_delete_bank_accounts: boolean
+          can_delete_categories: boolean
+          can_delete_products: boolean
+          can_delete_transactions: boolean
+          can_edit_accounts: boolean
+          can_edit_bank_accounts: boolean
+          can_edit_categories: boolean
+          can_edit_products: boolean
+          can_edit_transactions: boolean
           can_view_accounts: boolean
           can_view_bank_accounts: boolean
           can_view_categories: boolean
@@ -156,6 +166,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          can_delete_accounts?: boolean
+          can_delete_bank_accounts?: boolean
+          can_delete_categories?: boolean
+          can_delete_products?: boolean
+          can_delete_transactions?: boolean
+          can_edit_accounts?: boolean
+          can_edit_bank_accounts?: boolean
+          can_edit_categories?: boolean
+          can_edit_products?: boolean
+          can_edit_transactions?: boolean
           can_view_accounts?: boolean
           can_view_bank_accounts?: boolean
           can_view_categories?: boolean
@@ -168,6 +188,16 @@ export type Database = {
           user_id: string
         }
         Update: {
+          can_delete_accounts?: boolean
+          can_delete_bank_accounts?: boolean
+          can_delete_categories?: boolean
+          can_delete_products?: boolean
+          can_delete_transactions?: boolean
+          can_edit_accounts?: boolean
+          can_edit_bank_accounts?: boolean
+          can_edit_categories?: boolean
+          can_edit_products?: boolean
+          can_edit_transactions?: boolean
           can_view_accounts?: boolean
           can_view_bank_accounts?: boolean
           can_view_categories?: boolean

@@ -57,7 +57,32 @@ import {
   Database,
   RefreshCw,
   AlertTriangle,
+  Eye,
+  Pencil,
 } from 'lucide-react';
+
+interface UserPermissions {
+  id?: string;
+  // View
+  can_view_products: boolean;
+  can_view_transactions: boolean;
+  can_view_accounts: boolean;
+  can_view_bank_accounts: boolean;
+  can_view_stock_movements: boolean;
+  can_view_categories: boolean;
+  // Edit
+  can_edit_products: boolean;
+  can_edit_transactions: boolean;
+  can_edit_accounts: boolean;
+  can_edit_bank_accounts: boolean;
+  can_edit_categories: boolean;
+  // Delete
+  can_delete_products: boolean;
+  can_delete_transactions: boolean;
+  can_delete_accounts: boolean;
+  can_delete_bank_accounts: boolean;
+  can_delete_categories: boolean;
+}
 
 interface UserWithDetails {
   id: string;
@@ -66,16 +91,27 @@ interface UserWithDetails {
   isAdmin: boolean;
   createdAt: string;
   lastSignIn?: string;
-  permissions: {
-    id?: string;
-    can_view_products: boolean;
-    can_view_transactions: boolean;
-    can_view_accounts: boolean;
-    can_view_bank_accounts: boolean;
-    can_view_stock_movements: boolean;
-    can_view_categories: boolean;
-  } | null;
+  permissions: UserPermissions | null;
 }
+
+const defaultPermissions: UserPermissions = {
+  can_view_products: true,
+  can_view_transactions: true,
+  can_view_accounts: true,
+  can_view_bank_accounts: true,
+  can_view_stock_movements: true,
+  can_view_categories: true,
+  can_edit_products: false,
+  can_edit_transactions: false,
+  can_edit_accounts: false,
+  can_edit_bank_accounts: false,
+  can_edit_categories: false,
+  can_delete_products: false,
+  can_delete_transactions: false,
+  can_delete_accounts: false,
+  can_delete_bank_accounts: false,
+  can_delete_categories: false,
+};
 
 const AdminPanel = () => {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
@@ -232,12 +268,25 @@ const AdminPanel = () => {
     try {
       const permData = {
         user_id: user.id,
+        // View
         can_view_products: user.permissions.can_view_products,
         can_view_transactions: user.permissions.can_view_transactions,
         can_view_accounts: user.permissions.can_view_accounts,
         can_view_bank_accounts: user.permissions.can_view_bank_accounts,
         can_view_stock_movements: user.permissions.can_view_stock_movements,
         can_view_categories: user.permissions.can_view_categories,
+        // Edit
+        can_edit_products: user.permissions.can_edit_products,
+        can_edit_transactions: user.permissions.can_edit_transactions,
+        can_edit_accounts: user.permissions.can_edit_accounts,
+        can_edit_bank_accounts: user.permissions.can_edit_bank_accounts,
+        can_edit_categories: user.permissions.can_edit_categories,
+        // Delete
+        can_delete_products: user.permissions.can_delete_products,
+        can_delete_transactions: user.permissions.can_delete_transactions,
+        can_delete_accounts: user.permissions.can_delete_accounts,
+        can_delete_bank_accounts: user.permissions.can_delete_bank_accounts,
+        can_delete_categories: user.permissions.can_delete_categories,
       };
 
       if (user.permissions.id) {
@@ -457,14 +506,7 @@ const AdminPanel = () => {
                                   onClick={() => {
                                     setSelectedUser({
                                       ...user,
-                                      permissions: user.permissions || {
-                                        can_view_products: true,
-                                        can_view_transactions: true,
-                                        can_view_accounts: true,
-                                        can_view_bank_accounts: true,
-                                        can_view_stock_movements: true,
-                                        can_view_categories: true,
-                                      },
+                                      permissions: user.permissions || defaultPermissions,
                                     });
                                     setPermDialogOpen(true);
                                   }}
@@ -594,7 +636,7 @@ const AdminPanel = () => {
 
         {/* Permissions Dialog */}
         <Dialog open={permDialogOpen} onOpenChange={setPermDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Kullanıcı İzinleri</DialogTitle>
               <DialogDescription>
@@ -602,80 +644,98 @@ const AdminPanel = () => {
               </DialogDescription>
             </DialogHeader>
             {selectedUser && selectedUser.permissions && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-muted-foreground" />
-                    <span>Ürünler</span>
-                  </div>
-                  <Switch
-                    checked={selectedUser.permissions.can_view_products}
-                    onCheckedChange={(checked) =>
-                      handlePermissionChange(selectedUser.id, 'can_view_products', checked)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-muted-foreground" />
-                    <span>İşlemler</span>
-                  </div>
-                  <Switch
-                    checked={selectedUser.permissions.can_view_transactions}
-                    onCheckedChange={(checked) =>
-                      handlePermissionChange(selectedUser.id, 'can_view_transactions', checked)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <span>Hesaplar</span>
-                  </div>
-                  <Switch
-                    checked={selectedUser.permissions.can_view_accounts}
-                    onCheckedChange={(checked) =>
-                      handlePermissionChange(selectedUser.id, 'can_view_accounts', checked)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-muted-foreground" />
-                    <span>Banka Hesapları</span>
-                  </div>
-                  <Switch
-                    checked={selectedUser.permissions.can_view_bank_accounts}
-                    onCheckedChange={(checked) =>
-                      handlePermissionChange(selectedUser.id, 'can_view_bank_accounts', checked)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-muted-foreground" />
-                    <span>Stok Hareketleri</span>
-                  </div>
-                  <Switch
-                    checked={selectedUser.permissions.can_view_stock_movements}
-                    onCheckedChange={(checked) =>
-                      handlePermissionChange(selectedUser.id, 'can_view_stock_movements', checked)
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-2">
-                    <FolderTree className="w-4 h-4 text-muted-foreground" />
-                    <span>Kategoriler</span>
-                  </div>
-                  <Switch
-                    checked={selectedUser.permissions.can_view_categories}
-                    onCheckedChange={(checked) =>
-                      handlePermissionChange(selectedUser.id, 'can_view_categories', checked)
-                    }
-                  />
-                </div>
-                <div className="flex justify-end pt-4">
+              <div className="space-y-6">
+                <Tabs defaultValue="view" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="view" className="flex items-center gap-2">
+                      <Eye className="w-4 h-4" />
+                      Görüntüleme
+                    </TabsTrigger>
+                    <TabsTrigger value="edit" className="flex items-center gap-2">
+                      <Pencil className="w-4 h-4" />
+                      Düzenleme
+                    </TabsTrigger>
+                    <TabsTrigger value="delete" className="flex items-center gap-2">
+                      <Trash2 className="w-4 h-4" />
+                      Silme
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="view" className="mt-4 space-y-3">
+                    <p className="text-sm text-muted-foreground mb-4">Kullanıcının hangi verileri görebileceğini belirleyin</p>
+                    {[
+                      { key: 'can_view_products', label: 'Ürünler', icon: Package },
+                      { key: 'can_view_transactions', label: 'İşlemler', icon: Wallet },
+                      { key: 'can_view_accounts', label: 'Cari Hesaplar', icon: Users },
+                      { key: 'can_view_bank_accounts', label: 'Banka Hesapları', icon: Landmark },
+                      { key: 'can_view_stock_movements', label: 'Stok Hareketleri', icon: History },
+                      { key: 'can_view_categories', label: 'Kategoriler', icon: FolderTree },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <div key={key} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          <span>{label}</span>
+                        </div>
+                        <Switch
+                          checked={(selectedUser.permissions as any)[key]}
+                          onCheckedChange={(checked) =>
+                            handlePermissionChange(selectedUser.id, key as any, checked)
+                          }
+                        />
+                      </div>
+                    ))}
+                  </TabsContent>
+
+                  <TabsContent value="edit" className="mt-4 space-y-3">
+                    <p className="text-sm text-muted-foreground mb-4">Kullanıcının hangi verileri düzenleyebileceğini belirleyin</p>
+                    {[
+                      { key: 'can_edit_products', label: 'Ürünler', icon: Package },
+                      { key: 'can_edit_transactions', label: 'İşlemler', icon: Wallet },
+                      { key: 'can_edit_accounts', label: 'Cari Hesaplar', icon: Users },
+                      { key: 'can_edit_bank_accounts', label: 'Banka Hesapları', icon: Landmark },
+                      { key: 'can_edit_categories', label: 'Kategoriler', icon: FolderTree },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <div key={key} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          <span>{label}</span>
+                        </div>
+                        <Switch
+                          checked={(selectedUser.permissions as any)[key]}
+                          onCheckedChange={(checked) =>
+                            handlePermissionChange(selectedUser.id, key as any, checked)
+                          }
+                        />
+                      </div>
+                    ))}
+                  </TabsContent>
+
+                  <TabsContent value="delete" className="mt-4 space-y-3">
+                    <p className="text-sm text-muted-foreground mb-4">Kullanıcının hangi verileri silebileceğini belirleyin</p>
+                    {[
+                      { key: 'can_delete_products', label: 'Ürünler', icon: Package },
+                      { key: 'can_delete_transactions', label: 'İşlemler', icon: Wallet },
+                      { key: 'can_delete_accounts', label: 'Cari Hesaplar', icon: Users },
+                      { key: 'can_delete_bank_accounts', label: 'Banka Hesapları', icon: Landmark },
+                      { key: 'can_delete_categories', label: 'Kategoriler', icon: FolderTree },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <div key={key} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          <span>{label}</span>
+                        </div>
+                        <Switch
+                          checked={(selectedUser.permissions as any)[key]}
+                          onCheckedChange={(checked) =>
+                            handlePermissionChange(selectedUser.id, key as any, checked)
+                          }
+                        />
+                      </div>
+                    ))}
+                  </TabsContent>
+                </Tabs>
+
+                <div className="flex justify-end pt-4 border-t">
                   <Button onClick={() => savePermissions(selectedUser)} disabled={saving === selectedUser.id}>
                     <Save className="w-4 h-4 mr-2" />
                     {saving === selectedUser.id ? 'Kaydediliyor...' : 'Kaydet'}

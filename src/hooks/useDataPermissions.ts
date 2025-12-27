@@ -6,12 +6,25 @@ import { toast } from 'sonner';
 export interface DataPermission {
   id: string;
   user_id: string;
+  // View permissions
   can_view_products: boolean;
   can_view_transactions: boolean;
   can_view_accounts: boolean;
   can_view_bank_accounts: boolean;
   can_view_stock_movements: boolean;
   can_view_categories: boolean;
+  // Edit permissions
+  can_edit_products: boolean;
+  can_edit_transactions: boolean;
+  can_edit_accounts: boolean;
+  can_edit_bank_accounts: boolean;
+  can_edit_categories: boolean;
+  // Delete permissions
+  can_delete_products: boolean;
+  can_delete_transactions: boolean;
+  can_delete_accounts: boolean;
+  can_delete_bank_accounts: boolean;
+  can_delete_categories: boolean;
   created_at: string;
   updated_at: string;
 }
