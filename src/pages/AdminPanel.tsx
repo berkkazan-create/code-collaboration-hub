@@ -136,8 +136,13 @@ const AdminPanel = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
+      // Force refresh the session to get a valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError || !session) {
+        console.error('Session refresh error:', sessionError);
+        toast.error('Oturum yenilenemedi, lütfen tekrar giriş yapın');
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('admin-users', {
         body: { action: 'list' },
