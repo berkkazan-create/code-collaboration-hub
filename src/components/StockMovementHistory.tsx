@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useStockMovements, StockMovement } from '@/hooks/useStockMovements';
 import { useProducts } from '@/hooks/useProducts';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useTransactions } from '@/hooks/useTransactions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { ArrowUpCircle, ArrowDownCircle, RefreshCw, Plus, History } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, RefreshCw, Plus, History, DollarSign, Coins } from 'lucide-react';
 
 interface StockMovementHistoryProps {
   productId?: string;
@@ -31,23 +34,59 @@ interface StockMovementHistoryProps {
 export const StockMovementHistory = ({ productId, showAddButton = true }: StockMovementHistoryProps) => {
   const { movements, isLoading, createMovement } = useStockMovements(productId);
   const { products } = useProducts();
+  const { accounts } = useAccounts();
+  const { createTransaction } = useTransactions();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [affectsCost, setAffectsCost] = useState(false);
   const [formData, setFormData] = useState({
     product_id: productId || '',
     type: 'in' as 'in' | 'out' | 'adjustment',
     quantity: 0,
     reason: '',
+    cost_amount: 0,
+    currency: 'TRY' as 'TRY' | 'USD',
+    account_id: '',
   });
+
+  const selectedProduct = products.find(p => p.id === formData.product_id);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createMovement.mutateAsync(formData);
+    
+    // Create stock movement
+    await createMovement.mutateAsync({
+      product_id: formData.product_id,
+      type: formData.type,
+      quantity: formData.quantity,
+      reason: formData.reason,
+    });
+
+    // If affects cost, create transaction
+    if (affectsCost && formData.cost_amount > 0) {
+      const transactionType = formData.type === 'in' ? 'purchase' : 'sale';
+      await createTransaction.mutateAsync({
+        type: transactionType,
+        amount: formData.cost_amount,
+        product_id: formData.product_id,
+        account_id: formData.account_id || null,
+        quantity: formData.quantity,
+        description: `Stok ${formData.type === 'in' ? 'girişi' : 'çıkışı'}: ${selectedProduct?.name || 'Ürün'}`,
+        date: new Date().toISOString().split('T')[0],
+        payment_method: 'cash',
+        currency: formData.currency,
+      });
+    }
+
     setIsDialogOpen(false);
+    setAffectsCost(false);
     setFormData({
       product_id: productId || '',
       type: 'in',
       quantity: 0,
       reason: '',
+      cost_amount: 0,
+      currency: 'TRY',
+      account_id: '',
     });
   };
 
@@ -172,6 +211,83 @@ export const StockMovementHistory = ({ productId, showAddButton = true }: StockM
                     placeholder="Hareket sebebi..."
                   />
                 </div>
+
+                {/* Cost Integration Toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Maliyet/Cari Etkile</p>
+                      <p className="text-xs text-muted-foreground">
+                        İşlem cari hesaplara yansısın
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={affectsCost}
+                    onCheckedChange={setAffectsCost}
+                  />
+                </div>
+
+                {affectsCost && (
+                  <div className="space-y-4 p-3 rounded-lg border border-border">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Tutar</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.cost_amount}
+                          onChange={(e) => setFormData({ ...formData, cost_amount: parseFloat(e.target.value) || 0 })}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Para Birimi</Label>
+                        <Select
+                          value={formData.currency}
+                          onValueChange={(value: 'TRY' | 'USD') => setFormData({ ...formData, currency: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="TRY">
+                              <div className="flex items-center gap-2">
+                                <span>₺</span> TRY
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="USD">
+                              <div className="flex items-center gap-2">
+                                <DollarSign className="w-3 h-3" /> USD
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Cari Hesap (Opsiyonel)</Label>
+                      <Select
+                        value={formData.account_id || 'none'}
+                        onValueChange={(value) => setFormData({ ...formData, account_id: value === 'none' ? '' : value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seçiniz" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Seçilmedi</SelectItem>
+                          {accounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name} ({account.type === 'customer' ? 'Müşteri' : 'Tedarikçi'})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     İptal

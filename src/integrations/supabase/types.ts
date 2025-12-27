@@ -19,6 +19,7 @@ export type Database = {
           address: string | null
           balance: number
           created_at: string
+          currency: string | null
           email: string | null
           id: string
           name: string
@@ -33,6 +34,7 @@ export type Database = {
           address?: string | null
           balance?: number
           created_at?: string
+          currency?: string | null
           email?: string | null
           id?: string
           name: string
@@ -47,6 +49,7 @@ export type Database = {
           address?: string | null
           balance?: number
           created_at?: string
+          currency?: string | null
           email?: string | null
           id?: string
           name?: string
@@ -208,7 +211,11 @@ export type Database = {
       }
       stock_movements: {
         Row: {
+          account_id: string | null
+          affects_cost: boolean | null
+          cost_amount: number | null
           created_at: string
+          currency: string | null
           id: string
           new_quantity: number
           previous_quantity: number
@@ -220,7 +227,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
+          affects_cost?: boolean | null
+          cost_amount?: number | null
           created_at?: string
+          currency?: string | null
           id?: string
           new_quantity: number
           previous_quantity: number
@@ -232,7 +243,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
+          affects_cost?: boolean | null
+          cost_amount?: number | null
           created_at?: string
+          currency?: string | null
           id?: string
           new_quantity?: number
           previous_quantity?: number
@@ -244,6 +259,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_movements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_movements_product_id_fkey"
             columns: ["product_id"]
@@ -259,6 +281,7 @@ export type Database = {
           amount: number
           bank_account_id: string | null
           created_at: string
+          currency: string | null
           date: string
           description: string | null
           id: string
@@ -273,6 +296,7 @@ export type Database = {
           amount: number
           bank_account_id?: string | null
           created_at?: string
+          currency?: string | null
           date?: string
           description?: string | null
           id?: string
@@ -287,6 +311,7 @@ export type Database = {
           amount?: number
           bank_account_id?: string | null
           created_at?: string
+          currency?: string | null
           date?: string
           description?: string | null
           id?: string

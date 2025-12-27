@@ -14,6 +14,8 @@ export interface Transaction {
   description: string | null;
   date: string;
   payment_method: 'cash' | 'bank';
+  currency: 'TRY' | 'USD';
+  bank_account_id?: string | null;
   created_at: string;
 }
 
