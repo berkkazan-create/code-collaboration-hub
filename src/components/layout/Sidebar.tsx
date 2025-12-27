@@ -41,7 +41,7 @@ const navItems = [
 ];
 
 const adminNavItems = [
-  { href: '/user-permissions', label: 'Kullanıcı İzinleri', icon: Shield },
+  { href: '/admin', label: 'Admin Paneli', icon: Shield },
 ];
 
 export const Sidebar = () => {
