@@ -15,6 +15,7 @@ import Reports from "./pages/Reports";
 import StockHistory from "./pages/StockHistory";
 import Accounting from "./pages/Accounting";
 import UserPermissions from "./pages/UserPermissions";
+import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -104,6 +105,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <UserPermissions />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminPanel />
           </ProtectedRoute>
         }
       />
