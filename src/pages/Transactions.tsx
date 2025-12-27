@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,8 @@ import { useTransactions, TransactionInput, Transaction } from '@/hooks/useTrans
 import { useAccounts } from '@/hooks/useAccounts';
 import { useProducts } from '@/hooks/useProducts';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
-import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard, Edit } from 'lucide-react';
+import { useStockMovements } from '@/hooks/useStockMovements';
+import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard, Edit, Package, Calculator } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface TransactionFormData extends TransactionInput {
@@ -44,14 +46,17 @@ interface TransactionFormData extends TransactionInput {
 const Transactions = () => {
   const { transactions, isLoading, createTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { accounts } = useAccounts();
-  const { products } = useProducts();
+  const { products, updateProduct } = useProducts();
   const { bankAccounts } = useBankAccounts();
+  const { createMovement } = useStockMovements();
   const { isAdmin } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [updateStock, setUpdateStock] = useState(false);
+  const [unitPrice, setUnitPrice] = useState(0);
 
   const [formData, setFormData] = useState<TransactionFormData>({
     account_id: null,
@@ -65,6 +70,18 @@ const Transactions = () => {
     bank_account_id: null,
   });
 
+  // Get selected product details
+  const selectedProduct = useMemo(() => {
+    if (!formData.product_id) return null;
+    return products.find(p => p.id === formData.product_id);
+  }, [formData.product_id, products]);
+
+  // Calculate suggested total
+  const suggestedTotal = useMemo(() => {
+    if (!formData.quantity || formData.quantity <= 0) return 0;
+    return unitPrice * formData.quantity;
+  }, [unitPrice, formData.quantity]);
+
   const filteredTransactions = transactions.filter((t) => {
     const matchesSearch = t.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const isIncome = t.type === 'income' || t.type === 'sale';
@@ -77,10 +94,22 @@ const Transactions = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (editingTransaction) {
       await updateTransaction.mutateAsync({ id: editingTransaction.id, ...formData });
     } else {
       await createTransaction.mutateAsync(formData as TransactionInput);
+      
+      // Update stock if enabled and product is selected
+      if (updateStock && formData.product_id && formData.quantity && formData.quantity > 0) {
+        const stockType = (formData.type === 'purchase' || formData.type === 'income') ? 'in' : 'out';
+        await createMovement.mutateAsync({
+          product_id: formData.product_id,
+          type: stockType,
+          quantity: formData.quantity,
+          reason: `${formData.type === 'sale' ? 'Satış' : formData.type === 'purchase' ? 'Satın Alma' : formData.type === 'income' ? 'Gelir' : 'Gider'} işlemi`,
+        });
+      }
     }
     handleCloseDialog();
   };
@@ -98,12 +127,16 @@ const Transactions = () => {
       payment_method: transaction.payment_method || 'cash',
       bank_account_id: transaction.bank_account_id,
     });
+    setUpdateStock(false);
+    setUnitPrice(0);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingTransaction(null);
+    setUpdateStock(false);
+    setUnitPrice(0);
     setFormData({
       account_id: null,
       product_id: null,
@@ -115,6 +148,28 @@ const Transactions = () => {
       payment_method: 'cash',
       bank_account_id: null,
     });
+  };
+
+  const handleProductChange = (productId: string | null) => {
+    if (productId && productId !== 'none') {
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        const isIncome = formData.type === 'income' || formData.type === 'sale';
+        setUnitPrice(isIncome ? Number(product.sale_price) : Number(product.purchase_price));
+        setFormData({ ...formData, product_id: productId, quantity: 1 });
+        return;
+      }
+    }
+    setUnitPrice(0);
+    setFormData({ ...formData, product_id: null, quantity: null });
+  };
+
+  const handleTypeChange = (type: 'income' | 'expense' | 'purchase' | 'sale') => {
+    if (selectedProduct) {
+      const isIncome = type === 'income' || type === 'sale';
+      setUnitPrice(isIncome ? Number(selectedProduct.sale_price) : Number(selectedProduct.purchase_price));
+    }
+    setFormData({ ...formData, type });
   };
 
   const handleDelete = async () => {
@@ -288,7 +343,7 @@ const Transactions = () => {
                       <Label>İşlem Tipi *</Label>
                       <Select
                         value={formData.type}
-                        onValueChange={(value: any) => setFormData({ ...formData, type: value })}
+                        onValueChange={(value: any) => handleTypeChange(value)}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -397,9 +452,7 @@ const Transactions = () => {
                       <Label>Ürün</Label>
                       <Select
                         value={formData.product_id || 'none'}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, product_id: value === 'none' ? null : value })
-                        }
+                        onValueChange={(value) => handleProductChange(value === 'none' ? null : value)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Seçiniz" />
@@ -408,12 +461,96 @@ const Transactions = () => {
                           <SelectItem value="none">Seçilmedi</SelectItem>
                           {products.map((product) => (
                             <SelectItem key={product.id} value={product.id}>
-                              {product.name}
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4" />
+                                {product.name}
+                                <Badge variant="outline" className="ml-1 text-xs">
+                                  Stok: {product.quantity}
+                                </Badge>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
+                    
+                    {/* Product details and calculation */}
+                    {selectedProduct && (
+                      <div className="col-span-2 space-y-4">
+                        <div className="glass-card p-4 space-y-3">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <Calculator className="w-4 h-4 text-primary" />
+                            Maliyet Hesaplama
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-xs">Birim Fiyat (₺)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={unitPrice}
+                                onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)}
+                                className="mt-1"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {formData.type === 'sale' || formData.type === 'income' ? 'Satış' : 'Alış'}: {formatCurrency(formData.type === 'sale' || formData.type === 'income' ? Number(selectedProduct.sale_price) : Number(selectedProduct.purchase_price))}
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-xs">Miktar (Adet)</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={formData.quantity || 1}
+                                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                                className="mt-1"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Mevcut stok: {selectedProduct.quantity} {selectedProduct.unit || 'adet'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between pt-2 border-t border-border">
+                            <span className="text-sm text-muted-foreground">Hesaplanan Toplam:</span>
+                            <span className="font-semibold text-primary">{formatCurrency(suggestedTotal)}</span>
+                          </div>
+                          
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => setFormData({ ...formData, amount: suggestedTotal })}
+                          >
+                            Tutarı Uygula
+                          </Button>
+                        </div>
+                        
+                        {/* Stock update toggle */}
+                        {!editingTransaction && (
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <Package className="w-4 h-4 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm font-medium">Stok Güncelle</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formData.type === 'sale' || formData.type === 'expense' 
+                                    ? 'Stoktan düş' 
+                                    : 'Stoğa ekle'}
+                                </p>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={updateStock}
+                              onCheckedChange={setUpdateStock}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="col-span-2">
                       <Label>Açıklama</Label>
                       <Input
