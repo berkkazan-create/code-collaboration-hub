@@ -27,12 +27,14 @@ import {
   Shield,
   ChevronDown,
   UserCog,
+  FolderTree,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/products', label: 'Stok Yönetimi', icon: Package },
+  { href: '/categories', label: 'Kategoriler', icon: FolderTree },
   { href: '/stock-history', label: 'Stok Hareketleri', icon: History },
   { href: '/transactions', label: 'Maliyet Takibi', icon: TrendingUp },
   { href: '/accounts', label: 'Cari Hesaplar', icon: Users },
