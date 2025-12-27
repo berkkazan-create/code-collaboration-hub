@@ -13,7 +13,7 @@ import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 import StockHistory from "./pages/StockHistory";
-import BankAccounts from "./pages/BankAccounts";
+import Accounting from "./pages/Accounting";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -91,10 +91,10 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/bank-accounts"
+        path="/accounting"
         element={
           <ProtectedRoute>
-            <BankAccounts />
+            <Accounting />
           </ProtectedRoute>
         }
       />
