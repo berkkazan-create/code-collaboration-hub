@@ -36,7 +36,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useProducts } from '@/hooks/useProducts';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useStockMovements } from '@/hooks/useStockMovements';
-import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard, Edit, Package, Calculator } from 'lucide-react';
+import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard, Edit, Package, Calculator, DollarSign } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface TransactionFormData extends TransactionInput {
@@ -67,6 +67,7 @@ const Transactions = () => {
     description: '',
     date: new Date().toISOString().split('T')[0],
     payment_method: 'cash',
+    currency: 'TRY',
     bank_account_id: null,
   });
 
@@ -125,6 +126,7 @@ const Transactions = () => {
       description: transaction.description || '',
       date: transaction.date,
       payment_method: transaction.payment_method || 'cash',
+      currency: transaction.currency || 'TRY',
       bank_account_id: transaction.bank_account_id,
     });
     setUpdateStock(false);
@@ -146,6 +148,7 @@ const Transactions = () => {
       description: '',
       date: new Date().toISOString().split('T')[0],
       payment_method: 'cash',
+      currency: 'TRY',
       bank_account_id: null,
     });
   };
@@ -202,8 +205,8 @@ const Transactions = () => {
     document.body.removeChild(link);
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+  const formatCurrency = (value: number, currency: string = 'TRY') =>
+    new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(value);
 
   const typeLabels: Record<string, string> = {
     income: 'Gelir',
@@ -284,7 +287,7 @@ const Transactions = () => {
         return (
           <span className={isIncome ? 'text-success font-semibold' : 'text-destructive font-semibold'}>
             {isIncome ? '+' : '-'}
-            {formatCurrency(Number(transaction.amount))}
+            {formatCurrency(Number(transaction.amount), transaction.currency || 'TRY')}
           </span>
         );
       },
@@ -357,7 +360,7 @@ const Transactions = () => {
                       </Select>
                     </div>
                     <div>
-                      <Label>Tutar (₺) *</Label>
+                      <Label>Tutar *</Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -369,6 +372,29 @@ const Transactions = () => {
                       />
                     </div>
                     <div>
+                      <Label>Para Birimi</Label>
+                      <Select
+                        value={formData.currency}
+                        onValueChange={(value: 'TRY' | 'USD') => setFormData({ ...formData, currency: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="TRY">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">₺</span> TRY
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="USD">
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="w-3 h-3" /> USD
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-2">
                       <Label>Tarih *</Label>
                       <Input
                         type="date"
