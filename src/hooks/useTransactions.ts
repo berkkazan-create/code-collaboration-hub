@@ -13,6 +13,7 @@ export interface Transaction {
   quantity: number | null;
   description: string | null;
   date: string;
+  payment_method: 'cash' | 'bank';
   created_at: string;
 }
 

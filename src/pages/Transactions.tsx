@@ -33,12 +33,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTransactions, TransactionInput } from '@/hooks/useTransactions';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useProducts } from '@/hooks/useProducts';
-import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Search, Trash2, Download, TrendingUp, TrendingDown, Banknote, CreditCard } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const Transactions = () => {
   const { transactions, isLoading, createTransaction, deleteTransaction } = useTransactions();
   const { accounts } = useAccounts();
   const { products } = useProducts();
+  const { isAdmin } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -52,6 +54,7 @@ const Transactions = () => {
     quantity: null,
     description: '',
     date: new Date().toISOString().split('T')[0],
+    payment_method: 'cash',
   });
 
   const filteredTransactions = transactions.filter((t) => {
@@ -80,6 +83,7 @@ const Transactions = () => {
       quantity: null,
       description: '',
       date: new Date().toISOString().split('T')[0],
+      payment_method: 'cash',
     });
   };
 
@@ -121,6 +125,11 @@ const Transactions = () => {
     expense: 'Gider',
     purchase: 'Satın Alma',
     sale: 'Satış',
+  };
+
+  const paymentMethodLabels: Record<string, string> = {
+    cash: 'Nakit',
+    bank: 'Banka',
   };
 
   const columns = [
@@ -169,6 +178,20 @@ const Transactions = () => {
       ),
     },
     {
+      key: 'payment_method',
+      header: 'Ödeme',
+      render: (transaction: any) => (
+        <div className="flex items-center gap-2">
+          {transaction.payment_method === 'bank' ? (
+            <CreditCard className="w-4 h-4 text-primary" />
+          ) : (
+            <Banknote className="w-4 h-4 text-success" />
+          )}
+          <span className="text-sm">{paymentMethodLabels[transaction.payment_method] || 'Nakit'}</span>
+        </div>
+      ),
+    },
+    {
       key: 'amount',
       header: 'Tutar',
       render: (transaction: any) => {
@@ -186,14 +209,16 @@ const Transactions = () => {
       header: '',
       render: (transaction: any) => (
         <div className="flex items-center gap-2 justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeleteId(transaction.id)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteId(transaction.id)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -282,6 +307,33 @@ const Transactions = () => {
                               {account.name}
                             </SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-2">
+                      <Label>Ödeme Yöntemi *</Label>
+                      <Select
+                        value={formData.payment_method}
+                        onValueChange={(value: 'cash' | 'bank') =>
+                          setFormData({ ...formData, payment_method: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">
+                            <div className="flex items-center gap-2">
+                              <Banknote className="w-4 h-4" />
+                              Nakit
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="bank">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="w-4 h-4" />
+                              Banka
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

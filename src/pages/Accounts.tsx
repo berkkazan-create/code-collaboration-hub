@@ -32,10 +32,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAccounts, Account, AccountInput } from '@/hooks/useAccounts';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Plus, Search, Edit, Trash2, Download, Users, Building2 } from 'lucide-react';
 
 const Accounts = () => {
   const { accounts, isLoading, createAccount, updateAccount, deleteAccount } = useAccounts();
+  const { isAdmin } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'customer' | 'supplier'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -196,14 +198,16 @@ const Accounts = () => {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
             <Edit className="w-4 h-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeleteId(account.id)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteId(account.id)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },
