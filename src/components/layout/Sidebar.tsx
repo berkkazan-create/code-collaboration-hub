@@ -8,16 +8,17 @@ import {
   TrendingUp,
   Users,
   FileText,
-  Settings,
   LogOut,
   Menu,
   X,
+  History,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/products', label: 'Stok Yönetimi', icon: Package },
+  { href: '/stock-history', label: 'Stok Hareketleri', icon: History },
   { href: '/transactions', label: 'Maliyet Takibi', icon: TrendingUp },
   { href: '/accounts', label: 'Cari Hesaplar', icon: Users },
   { href: '/reports', label: 'Raporlar', icon: FileText },

@@ -11,6 +11,7 @@ import Products from "./pages/Products";
 import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
+import StockHistory from "./pages/StockHistory";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -76,6 +77,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Reports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stock-history"
+        element={
+          <ProtectedRoute>
+            <StockHistory />
           </ProtectedRoute>
         }
       />

@@ -22,17 +22,41 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { useProducts, Product, ProductInput } from '@/hooks/useProducts';
-import { Plus, Search, Edit, Trash2, Download, Package } from 'lucide-react';
+import { useCategories } from '@/hooks/useCategories';
+import { CategoryManager } from '@/components/CategoryManager';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
+import { StockMovementHistory } from '@/components/StockMovementHistory';
+import { Plus, Search, Edit, Trash2, Download, Package, ScanBarcode, Tag, History, Database } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Products = () => {
   const { products, isLoading, createProduct, updateProduct, deleteProduct } = useProducts();
+  const { categories } = useCategories();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [isAddingDummy, setIsAddingDummy] = useState(false);
 
-  const [formData, setFormData] = useState<ProductInput>({
+  const [formData, setFormData] = useState<ProductInput & { barcode?: string }>({
     name: '',
     sku: '',
     description: '',
@@ -42,14 +66,20 @@ const Products = () => {
     sale_price: 0,
     min_stock_level: 0,
     category: '',
+    barcode: '',
   });
 
-  const filteredProducts = products.filter(
-    (p) =>
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      p.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p as any).barcode?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter;
+    
+    return matchesSearch && matchesCategory;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +103,7 @@ const Products = () => {
       sale_price: product.sale_price,
       min_stock_level: product.min_stock_level,
       category: product.category || '',
+      barcode: (product as any).barcode || '',
     });
     setIsDialogOpen(true);
   };
@@ -90,6 +121,7 @@ const Products = () => {
       sale_price: 0,
       min_stock_level: 0,
       category: '',
+      barcode: '',
     });
   };
 
@@ -100,11 +132,51 @@ const Products = () => {
     }
   };
 
+  const handleBarcodeScan = (barcode: string) => {
+    const foundProduct = products.find((p) => (p as any).barcode === barcode);
+    if (foundProduct) {
+      setSearchQuery(barcode);
+      toast.success(`Ürün bulundu: ${foundProduct.name}`);
+    } else {
+      toast.info('Bu barkodla ürün bulunamadı');
+      setFormData({ ...formData, barcode });
+      setIsDialogOpen(true);
+    }
+  };
+
+  const addDummyData = async () => {
+    setIsAddingDummy(true);
+    const dummyProducts: ProductInput[] = [
+      { name: 'iPhone 15 Pro', sku: 'IPH15P-256', description: 'Apple iPhone 15 Pro 256GB', quantity: 25, unit: 'adet', purchase_price: 45000, sale_price: 52000, min_stock_level: 5, category: 'Elektronik' },
+      { name: 'Samsung Galaxy S24', sku: 'SGS24-128', description: 'Samsung Galaxy S24 128GB', quantity: 30, unit: 'adet', purchase_price: 32000, sale_price: 38000, min_stock_level: 10, category: 'Elektronik' },
+      { name: 'MacBook Air M3', sku: 'MBA-M3-256', description: 'Apple MacBook Air M3 256GB', quantity: 12, unit: 'adet', purchase_price: 55000, sale_price: 65000, min_stock_level: 3, category: 'Bilgisayar' },
+      { name: 'Dell Monitor 27"', sku: 'DELL-27-4K', description: 'Dell UltraSharp 27" 4K Monitor', quantity: 18, unit: 'adet', purchase_price: 8500, sale_price: 10500, min_stock_level: 5, category: 'Bilgisayar' },
+      { name: 'AirPods Pro 2', sku: 'APP2-2023', description: 'Apple AirPods Pro 2. Nesil', quantity: 45, unit: 'adet', purchase_price: 5500, sale_price: 7000, min_stock_level: 10, category: 'Aksesuar' },
+      { name: 'Logitech MX Master 3S', sku: 'LOG-MXM3S', description: 'Logitech MX Master 3S Mouse', quantity: 35, unit: 'adet', purchase_price: 2800, sale_price: 3500, min_stock_level: 8, category: 'Aksesuar' },
+      { name: 'USB-C Hub 7in1', sku: 'USBC-HUB-7', description: 'USB-C 7-in-1 Multiport Hub', quantity: 60, unit: 'adet', purchase_price: 450, sale_price: 650, min_stock_level: 15, category: 'Aksesuar' },
+      { name: 'Ofis Kağıdı A4', sku: 'KAGIT-A4-500', description: 'A4 Fotokopi Kağıdı 500lü', quantity: 200, unit: 'paket', purchase_price: 85, sale_price: 120, min_stock_level: 50, category: 'Kırtasiye' },
+      { name: 'Tükenmez Kalem Mavi', sku: 'KALEM-MAVI-12', description: 'Mavi Tükenmez Kalem 12li', quantity: 150, unit: 'kutu', purchase_price: 35, sale_price: 55, min_stock_level: 30, category: 'Kırtasiye' },
+      { name: 'Bluetooth Klavye', sku: 'BT-KLAVYE-TR', description: 'Türkçe Q Bluetooth Klavye', quantity: 22, unit: 'adet', purchase_price: 850, sale_price: 1200, min_stock_level: 5, category: 'Aksesuar' },
+    ];
+
+    try {
+      for (const product of dummyProducts) {
+        await createProduct.mutateAsync(product);
+      }
+      toast.success('Dummy veriler başarıyla eklendi');
+    } catch (error) {
+      toast.error('Veri eklenirken hata oluştu');
+    } finally {
+      setIsAddingDummy(false);
+    }
+  };
+
   const exportToCSV = () => {
-    const headers = ['Ad', 'SKU', 'Miktar', 'Birim', 'Alış Fiyatı', 'Satış Fiyatı', 'Kategori'];
+    const headers = ['Ad', 'SKU', 'Barkod', 'Miktar', 'Birim', 'Alış Fiyatı', 'Satış Fiyatı', 'Kategori'];
     const rows = products.map((p) => [
       p.name,
       p.sku || '',
+      (p as any).barcode || '',
       p.quantity,
       p.unit,
       p.purchase_price,
@@ -138,7 +210,15 @@ const Products = () => {
           </div>
           <div>
             <p className="font-medium text-foreground">{product.name}</p>
-            {product.sku && <p className="text-xs text-muted-foreground">{product.sku}</p>}
+            <div className="flex items-center gap-2">
+              {product.sku && <p className="text-xs text-muted-foreground">{product.sku}</p>}
+              {(product as any).barcode && (
+                <Badge variant="outline" className="text-xs">
+                  <ScanBarcode className="w-3 h-3 mr-1" />
+                  {(product as any).barcode}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       ),
@@ -166,7 +246,16 @@ const Products = () => {
     {
       key: 'category',
       header: 'Kategori',
-      render: (product: Product) => product.category || '-',
+      render: (product: Product) => {
+        const category = categories.find((c) => c.name === product.category);
+        return product.category ? (
+          <Badge variant="outline" style={{ borderColor: category?.color, color: category?.color }}>
+            {product.category}
+          </Badge>
+        ) : (
+          '-'
+        );
+      },
       className: 'hidden lg:table-cell',
     },
     {
@@ -174,6 +263,21 @@ const Products = () => {
       header: '',
       render: (product: Product) => (
         <div className="flex items-center gap-2 justify-end">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedProductId(product.id)}>
+                <History className="w-4 h-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px]">
+              <SheetHeader>
+                <SheetTitle>Stok Hareketleri - {product.name}</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6">
+                <StockMovementHistory productId={product.id} />
+              </div>
+            </SheetContent>
+          </Sheet>
           <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
             <Edit className="w-4 h-4" />
           </Button>
@@ -199,7 +303,15 @@ const Products = () => {
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Stok Yönetimi</h1>
             <p className="text-muted-foreground mt-1">Ürünlerinizi yönetin</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={addDummyData} disabled={isAddingDummy}>
+              <Database className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">{isAddingDummy ? 'Ekleniyor...' : 'Demo Veri'}</span>
+            </Button>
+            <Button variant="outline" onClick={() => setIsScannerOpen(true)}>
+              <ScanBarcode className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Barkod Tara</span>
+            </Button>
             <Button variant="outline" onClick={exportToCSV}>
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Dışa Aktar</span>
@@ -235,11 +347,46 @@ const Products = () => {
                       />
                     </div>
                     <div>
+                      <Label>Barkod</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={formData.barcode || ''}
+                          onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                          placeholder="Barkod numarası"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setIsScannerOpen(true)}
+                        >
+                          <ScanBarcode className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
                       <Label>Kategori</Label>
-                      <Input
+                      <Select
                         value={formData.category || ''}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      />
+                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Kategori seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.name}>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: category.color }}
+                                />
+                                {category.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label>Miktar *</Label>
@@ -321,15 +468,42 @@ const Products = () => {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Ürün ara..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        {/* Categories */}
+        <div className="animate-fade-in" style={{ animationDelay: '0.05s' }}>
+          <CategoryManager />
+        </div>
+
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-4 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Ürün, SKU veya barkod ara..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[180px]">
+              <Tag className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Kategori filtrele" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Kategoriler</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.name}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    {category.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Table */}
@@ -340,6 +514,13 @@ const Products = () => {
             emptyMessage="Henüz ürün eklenmemiş"
           />
         </div>
+
+        {/* Barcode Scanner */}
+        <BarcodeScanner
+          open={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onScan={handleBarcodeScan}
+        />
 
         {/* Delete Confirmation */}
         <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
