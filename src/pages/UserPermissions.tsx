@@ -24,14 +24,46 @@ interface UserWithPermissions {
   isAdmin: boolean;
   permissions: {
     id?: string;
+    // View
     can_view_products: boolean;
     can_view_transactions: boolean;
     can_view_accounts: boolean;
     can_view_bank_accounts: boolean;
     can_view_stock_movements: boolean;
     can_view_categories: boolean;
+    // Edit
+    can_edit_products: boolean;
+    can_edit_transactions: boolean;
+    can_edit_accounts: boolean;
+    can_edit_bank_accounts: boolean;
+    can_edit_categories: boolean;
+    // Delete
+    can_delete_products: boolean;
+    can_delete_transactions: boolean;
+    can_delete_accounts: boolean;
+    can_delete_bank_accounts: boolean;
+    can_delete_categories: boolean;
   };
 }
+
+const defaultPermissions = {
+  can_view_products: true,
+  can_view_transactions: true,
+  can_view_accounts: true,
+  can_view_bank_accounts: true,
+  can_view_stock_movements: true,
+  can_view_categories: true,
+  can_edit_products: false,
+  can_edit_transactions: false,
+  can_edit_accounts: false,
+  can_edit_bank_accounts: false,
+  can_edit_categories: false,
+  can_delete_products: false,
+  can_delete_transactions: false,
+  can_delete_accounts: false,
+  can_delete_bank_accounts: false,
+  can_delete_categories: false,
+};
 
 const UserPermissions = () => {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
@@ -73,14 +105,7 @@ const UserPermissions = () => {
             id: profile.user_id,
             email: profile.full_name || profile.user_id.slice(0, 8) + '...',
             isAdmin: userRole?.role === 'admin',
-            permissions: userPerm || {
-              can_view_products: true,
-              can_view_transactions: true,
-              can_view_accounts: true,
-              can_view_bank_accounts: true,
-              can_view_stock_movements: true,
-              can_view_categories: true,
-            },
+            permissions: userPerm || defaultPermissions,
           };
         });
 
@@ -117,12 +142,25 @@ const UserPermissions = () => {
     try {
       const permData = {
         user_id: user.id,
+        // View
         can_view_products: user.permissions.can_view_products,
         can_view_transactions: user.permissions.can_view_transactions,
         can_view_accounts: user.permissions.can_view_accounts,
         can_view_bank_accounts: user.permissions.can_view_bank_accounts,
         can_view_stock_movements: user.permissions.can_view_stock_movements,
         can_view_categories: user.permissions.can_view_categories,
+        // Edit
+        can_edit_products: user.permissions.can_edit_products,
+        can_edit_transactions: user.permissions.can_edit_transactions,
+        can_edit_accounts: user.permissions.can_edit_accounts,
+        can_edit_bank_accounts: user.permissions.can_edit_bank_accounts,
+        can_edit_categories: user.permissions.can_edit_categories,
+        // Delete
+        can_delete_products: user.permissions.can_delete_products,
+        can_delete_transactions: user.permissions.can_delete_transactions,
+        can_delete_accounts: user.permissions.can_delete_accounts,
+        can_delete_bank_accounts: user.permissions.can_delete_bank_accounts,
+        can_delete_categories: user.permissions.can_delete_categories,
       };
 
       if (user.permissions.id) {
