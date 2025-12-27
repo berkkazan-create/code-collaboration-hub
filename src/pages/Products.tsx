@@ -43,10 +43,12 @@ import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { StockMovementHistory } from '@/components/StockMovementHistory';
 import { Plus, Search, Edit, Trash2, Download, Package, ScanBarcode, Tag, History, Database } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const Products = () => {
   const { products, isLoading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { categories } = useCategories();
+  const { isAdmin } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -281,14 +283,16 @@ const Products = () => {
           <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
             <Edit className="w-4 h-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeleteId(product.id)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteId(product.id)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },
