@@ -570,7 +570,7 @@ const Products = () => {
                   </div>
 
                   {/* IMEI/Serial Number Section */}
-                  {requiresSerial && formData.quantity > 0 && (
+                  {requiresSerial && (
                     <Card className="border-primary/50 bg-primary/5">
                       <CardContent className="pt-4 space-y-4">
                         <div className="flex items-center gap-2">
@@ -578,7 +578,7 @@ const Products = () => {
                           <Label className="text-base font-semibold">
                             IMEI Numaraları ({serialNumbers.length}/{formData.quantity})
                           </Label>
-                          {!serialCountValid && (
+                          {formData.quantity > 0 && !serialCountValid && (
                             <Badge variant="destructive" className="ml-auto">
                               <AlertCircle className="w-3 h-3 mr-1" />
                               {formData.quantity - serialNumbers.length} eksik
@@ -586,9 +586,15 @@ const Products = () => {
                           )}
                         </div>
                         
-                        <p className="text-sm text-muted-foreground">
-                          Bu kategorideki ürünler için {formData.quantity} adet IMEI numarası girmeniz zorunludur.
-                        </p>
+                        {formData.quantity === 0 ? (
+                          <p className="text-sm text-amber-600 dark:text-amber-400">
+                            IMEI numarası girmek için önce miktar belirleyin.
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Bu kategorideki ürünler için {formData.quantity} adet IMEI numarası girmeniz zorunludur.
+                          </p>
+                        )}
 
                         {/* Single IMEI input */}
                         <div className="flex gap-2">
@@ -602,30 +608,33 @@ const Products = () => {
                                 handleAddSerial();
                               }
                             }}
+                            disabled={formData.quantity === 0}
                           />
                           <Button
                             type="button"
                             onClick={handleAddSerial}
-                            disabled={serialNumbers.length >= formData.quantity}
+                            disabled={formData.quantity === 0 || serialNumbers.length >= formData.quantity}
                           >
                             <Plus className="w-4 h-4" />
                           </Button>
                         </div>
 
                         {/* Bulk input */}
-                        <div>
-                          <Label className="text-sm">Toplu IMEI Girişi (virgül, boşluk veya satır ile ayırın)</Label>
-                          <Textarea
-                            placeholder="IMEI1, IMEI2, IMEI3..."
-                            className="mt-1"
-                            onBlur={(e) => {
-                              if (e.target.value.trim()) {
-                                handleBulkSerialInput(e.target.value);
-                                e.target.value = '';
-                              }
-                            }}
-                          />
-                        </div>
+                        {formData.quantity > 0 && (
+                          <div>
+                            <Label className="text-sm">Toplu IMEI Girişi (virgül, boşluk veya satır ile ayırın)</Label>
+                            <Textarea
+                              placeholder="IMEI1, IMEI2, IMEI3..."
+                              className="mt-1"
+                              onBlur={(e) => {
+                                if (e.target.value.trim()) {
+                                  handleBulkSerialInput(e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
 
                         {/* Added serials list */}
                         {serialNumbers.length > 0 && (
