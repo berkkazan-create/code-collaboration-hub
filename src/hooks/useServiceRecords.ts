@@ -20,12 +20,14 @@ export type WarrantyType = 'none' | 'labor' | 'parts' | 'full';
 export interface ServiceRecord {
   id: string;
   user_id: string;
+  tracking_number?: string;
   device_brand: string;
   device_model: string;
   device_serial?: string;
   device_imei?: string;
   device_color?: string;
   screen_password?: string;
+  screen_password_type?: string;
   has_scratches: boolean;
   scratch_locations?: string;
   physical_condition?: string;
@@ -97,6 +99,7 @@ export interface ServiceRecordInput {
   device_imei?: string;
   device_color?: string;
   screen_password?: string;
+  screen_password_type?: string;
   has_scratches?: boolean;
   scratch_locations?: string;
   physical_condition?: string;
