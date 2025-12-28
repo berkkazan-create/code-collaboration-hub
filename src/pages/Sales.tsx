@@ -414,6 +414,38 @@ const Sales = () => {
   const formatPrice = (value: number) => formatCurrency(convertToDisplay(value, 'TRY'));
 
   const handleViewReceipt = (transaction: Transaction) => {
+    // Parse items from description to extract IMEI info
+    const description = transaction.description || '';
+    const items: { product_name: string; serial_number?: string; quantity: number; unit_price: number; total: number }[] = [];
+    
+    // Check if description contains "Satış:" format with IMEI info
+    if (description.startsWith('Satış:')) {
+      const itemsText = description.replace('Satış:', '').trim();
+      const itemParts = itemsText.split(',').map(s => s.trim());
+      
+      itemParts.forEach((part, index) => {
+        // Extract IMEI from format "Product Name (IMEI: 123456)"
+        const imeiMatch = part.match(/\(IMEI:\s*([^)]+)\)/);
+        const productName = part.replace(/\s*\(IMEI:\s*[^)]+\)/, '').trim();
+        
+        items.push({
+          product_name: productName || transaction.products?.name || 'Ürün',
+          serial_number: imeiMatch ? imeiMatch[1].trim() : undefined,
+          quantity: 1,
+          unit_price: transaction.amount / (transaction.quantity || 1),
+          total: transaction.amount / (transaction.quantity || itemParts.length),
+        });
+      });
+    } else {
+      // Fallback for older transactions without IMEI format
+      items.push({
+        product_name: transaction.products?.name || description || 'Ürün',
+        quantity: transaction.quantity || 1,
+        unit_price: transaction.amount / (transaction.quantity || 1),
+        total: transaction.amount,
+      });
+    }
+
     setLastSaleData({
       receiptNo: `S${transaction.id.slice(-8).toUpperCase()}`,
       date: new Date(transaction.date),
@@ -421,12 +453,7 @@ const Sales = () => {
         name: transaction.accounts.name,
         phone: transaction.accounts.phone || undefined,
       } : null,
-      items: [{
-        product_name: transaction.products?.name || transaction.description || 'Ürün',
-        quantity: transaction.quantity || 1,
-        unit_price: transaction.amount / (transaction.quantity || 1),
-        total: transaction.amount,
-      }],
+      items,
       paymentMethod: transaction.payment_method as 'cash' | 'bank',
       total: transaction.amount,
     });
