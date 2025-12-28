@@ -41,8 +41,22 @@ import {
   Banknote,
   ScanBarcode,
   Package,
-  Printer
+  Printer,
+  RotateCcw,
+  XCircle,
+  Eye,
+  FileText
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -62,7 +76,7 @@ const Sales = () => {
   const { user } = useAuth();
   const { products } = useProducts();
   const { accounts, createAccount } = useAccounts();
-  const { inStockSerials, soldSerials, sellSerial, findBySerial } = useProductSerials();
+  const { inStockSerials, soldSerials, sellSerial, returnSerial, cancelSale, findBySerial } = useProductSerials();
   const { createTransaction } = useTransactions();
   const { bankAccounts } = useBankAccounts();
   const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
@@ -83,6 +97,9 @@ const Sales = () => {
   });
   const [activeTab, setActiveTab] = useState('sale');
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
+  const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<ProductSerial | null>(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+  const [returnConfirmId, setReturnConfirmId] = useState<string | null>(null);
   const [lastSaleData, setLastSaleData] = useState<{
     receiptNo: string;
     date: Date;
@@ -337,6 +354,44 @@ const Sales = () => {
 
   const formatPrice = (value: number) => formatCurrency(convertToDisplay(value, 'TRY'));
 
+  const handleViewReceipt = (serial: ProductSerial) => {
+    setSelectedSaleForReceipt(serial);
+    setLastSaleData({
+      receiptNo: `S${serial.id.slice(-8).toUpperCase()}`,
+      date: serial.sold_at ? new Date(serial.sold_at) : new Date(),
+      customer: serial.accounts ? {
+        name: serial.accounts.name,
+        phone: serial.accounts.phone || undefined,
+      } : null,
+      items: [{
+        id: serial.id,
+        product_id: serial.product_id,
+        product_name: serial.products?.name || 'Ürün',
+        serial_number: serial.serial_number,
+        quantity: 1,
+        unit_price: serial.sale_price,
+        total: serial.sale_price,
+      }],
+      paymentMethod: 'cash',
+      total: serial.sale_price,
+    });
+    setIsReceiptDialogOpen(true);
+  };
+
+  const handleCancelSale = async () => {
+    if (cancelConfirmId) {
+      await cancelSale.mutateAsync(cancelConfirmId);
+      setCancelConfirmId(null);
+    }
+  };
+
+  const handleReturnSale = async () => {
+    if (returnConfirmId) {
+      await returnSerial.mutateAsync(returnConfirmId);
+      setReturnConfirmId(null);
+    }
+  };
+
   const salesHistoryColumns = [
     {
       key: 'date',
@@ -372,7 +427,44 @@ const Sales = () => {
     {
       key: 'price',
       header: 'Fiyat',
-      render: (serial: ProductSerial) => formatPrice(serial.sale_price),
+      render: (serial: ProductSerial) => (
+        <span className="font-semibold text-primary">{formatPrice(serial.sale_price)}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'İşlemler',
+      render: (serial: ProductSerial) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleViewReceipt(serial)}
+            title="Fişi Görüntüle"
+          >
+            <FileText className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-orange-500 hover:text-orange-600"
+            onClick={() => setReturnConfirmId(serial.id)}
+            title="İade Al"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => setCancelConfirmId(serial.id)}
+            title="Satışı İptal Et"
+          >
+            <XCircle className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
     },
   ];
 
@@ -822,6 +914,42 @@ const Sales = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Cancel Sale Confirmation */}
+        <AlertDialog open={!!cancelConfirmId} onOpenChange={() => setCancelConfirmId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Satışı İptal Et</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bu satışı iptal etmek istediğinizden emin misiniz? Cihaz stoğa geri alınacak.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancelSale} className="bg-destructive text-destructive-foreground">
+                Satışı İptal Et
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Return Confirmation */}
+        <AlertDialog open={!!returnConfirmId} onOpenChange={() => setReturnConfirmId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>İade Al</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bu ürünü iade almak istediğinizden emin misiniz? Ürün iade durumuna alınacak.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+              <AlertDialogAction onClick={handleReturnSale} className="bg-orange-500 hover:bg-orange-600">
+                İade Al
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
