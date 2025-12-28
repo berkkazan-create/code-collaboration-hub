@@ -137,6 +137,59 @@ export const useProductSerials = () => {
     },
   });
 
+  const returnSerial = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('product_serials')
+        .update({ 
+          status: 'returned', 
+          sold_at: null,
+          sold_to_account_id: null,
+          transaction_id: null
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product-serials'] });
+      toast.success('İade işlemi tamamlandı');
+    },
+    onError: () => {
+      toast.error('İade işlemi sırasında bir hata oluştu');
+    },
+  });
+
+  const cancelSale = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('product_serials')
+        .update({ 
+          status: 'in_stock', 
+          sold_at: null,
+          sold_to_account_id: null,
+          transaction_id: null,
+          sale_price: 0
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product-serials'] });
+      toast.success('Satış iptal edildi, ürün stoğa geri alındı');
+    },
+    onError: () => {
+      toast.error('Satış iptal edilirken bir hata oluştu');
+    },
+  });
+
   const deleteSerial = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('product_serials').delete().eq('id', id);
@@ -155,14 +208,19 @@ export const useProductSerials = () => {
     return serialsQuery.data?.find(s => s.serial_number === serialNumber);
   };
 
+  const returnedSerials = serialsQuery.data?.filter(s => s.status === 'returned') ?? [];
+
   return {
     serials: serialsQuery.data ?? [],
     inStockSerials,
     soldSerials,
+    returnedSerials,
     isLoading: serialsQuery.isLoading,
     createSerial,
     updateSerial,
     sellSerial,
+    returnSerial,
+    cancelSale,
     deleteSerial,
     findBySerial,
   };
