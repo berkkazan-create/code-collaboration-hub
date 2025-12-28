@@ -24,7 +24,7 @@ import {
   X,
   History,
   Calculator,
-  Shield,
+  
   ChevronDown,
   UserCog,
   FolderTree,
@@ -42,9 +42,6 @@ const navItems = [
   { href: '/reports', label: 'Raporlar', icon: FileText },
 ];
 
-const adminNavItems = [
-  { href: '/admin', label: 'Admin Paneli', icon: Shield },
-];
 
 export const Sidebar = () => {
   const location = useLocation();
@@ -117,31 +114,6 @@ export const Sidebar = () => {
               );
             })}
             
-            {isAdmin && (
-              <>
-                <div className="my-3 border-t border-border" />
-                <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Admin</p>
-                {adminNavItems.map((item) => {
-                  const isActive = location.pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      to={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
-                        isActive
-                          ? 'bg-primary text-primary-foreground shadow-glow'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                      )}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </>
-            )}
           </nav>
 
           {/* User Section */}
