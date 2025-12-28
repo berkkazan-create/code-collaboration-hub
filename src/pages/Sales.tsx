@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
 import { CurrencyToggle } from '@/components/CurrencyToggle';
+import { SalesReceipt } from '@/components/SalesReceipt';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   Search, 
@@ -39,7 +40,8 @@ import {
   CreditCard,
   Banknote,
   ScanBarcode,
-  Package
+  Package,
+  Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -80,6 +82,16 @@ const Sales = () => {
     address: '',
   });
   const [activeTab, setActiveTab] = useState('sale');
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
+  const [lastSaleData, setLastSaleData] = useState<{
+    receiptNo: string;
+    date: Date;
+    customer: { name: string; phone?: string; address?: string } | null;
+    items: typeof cart;
+    paymentMethod: 'cash' | 'bank';
+    total: number;
+  } | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   // Customer search by phone
   const filteredCustomers = useMemo(() => {
@@ -227,14 +239,91 @@ const Sales = () => {
         }
       }
 
+      // Save sale data for receipt
+      const receiptNo = `S${Date.now().toString().slice(-8)}`;
+      setLastSaleData({
+        receiptNo,
+        date: new Date(),
+        customer: selectedCustomer ? {
+          name: selectedCustomer.name,
+          phone: selectedCustomer.phone || undefined,
+          address: selectedCustomer.address || undefined,
+        } : null,
+        items: [...cart],
+        paymentMethod,
+        total: cartTotal,
+      });
+
       toast.success('Satış tamamlandı');
       setCart([]);
       setSelectedCustomer(null);
       setIsAnonymousSale(false);
       setCustomerSearch('');
+      setIsReceiptDialogOpen(true);
     } catch (error) {
       toast.error('Satış işlemi sırasında hata oluştu');
     }
+  };
+
+  const handlePrintReceipt = () => {
+    const printContent = receiptRef.current;
+    if (!printContent) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Popup engelleyici aktif olabilir');
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Satış Fişi</title>
+          <style>
+            body {
+              font-family: monospace;
+              margin: 0;
+              padding: 20px;
+              background: white;
+            }
+            .receipt {
+              width: 80mm;
+              margin: 0 auto;
+              font-size: 12px;
+            }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .font-bold { font-weight: bold; }
+            .border-dashed { border-style: dashed; }
+            .mb-4 { margin-bottom: 16px; }
+            .mt-4 { margin-top: 16px; }
+            .pt-2 { padding-top: 8px; }
+            .pb-4 { padding-bottom: 16px; }
+            .border-t { border-top: 1px dashed #ccc; }
+            .border-b { border-bottom: 1px dashed #ccc; }
+            .flex { display: flex; }
+            .justify-between { justify-content: space-between; }
+            .text-xs { font-size: 10px; }
+            .text-sm { font-size: 12px; }
+            .text-lg { font-size: 16px; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
   };
 
   const formatPrice = (value: number) => formatCurrency(convertToDisplay(value, 'TRY'));
@@ -664,6 +753,52 @@ const Sales = () => {
               <Button className="w-full" onClick={handleCreateCustomer}>
                 <UserPlus className="w-4 h-4 mr-2" />
                 Müşteri Oluştur
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Receipt Dialog */}
+        <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Printer className="w-5 h-5" />
+                Satış Fişi
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto border rounded-lg">
+              {lastSaleData && (
+                <SalesReceipt
+                  ref={receiptRef}
+                  data={{
+                    receiptNo: lastSaleData.receiptNo,
+                    date: lastSaleData.date,
+                    customer: lastSaleData.customer,
+                    items: lastSaleData.items.map(item => ({
+                      product_name: item.product_name,
+                      serial_number: item.serial_number,
+                      quantity: item.quantity,
+                      unit_price: item.unit_price,
+                      total: item.total,
+                    })),
+                    paymentMethod: lastSaleData.paymentMethod,
+                    total: lastSaleData.total,
+                  }}
+                />
+              )}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setIsReceiptDialogOpen(false)}
+              >
+                Kapat
+              </Button>
+              <Button className="flex-1" onClick={handlePrintReceipt}>
+                <Printer className="w-4 h-4 mr-2" />
+                Yazdır
               </Button>
             </div>
           </DialogContent>
