@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProducts } from '@/hooks/useProducts';
 import { useAccounts, Account } from '@/hooks/useAccounts';
 import { useProductSerials, ProductSerial } from '@/hooks/useProductSerials';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useTransactions, Transaction } from '@/hooks/useTransactions';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
 import { CurrencyToggle } from '@/components/CurrencyToggle';
@@ -44,8 +44,8 @@ import {
   Printer,
   RotateCcw,
   XCircle,
-  Eye,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -76,8 +76,8 @@ const Sales = () => {
   const { user } = useAuth();
   const { products } = useProducts();
   const { accounts, createAccount } = useAccounts();
-  const { inStockSerials, soldSerials, sellSerial, returnSerial, cancelSale, findBySerial } = useProductSerials();
-  const { createTransaction } = useTransactions();
+  const { inStockSerials, soldSerials, returnedSerials, sellSerial, returnSerial, cancelSale, findBySerial, updateSerial } = useProductSerials();
+  const { salesTransactions, createTransaction, deleteTransaction } = useTransactions();
   const { bankAccounts } = useBankAccounts();
   const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
 
@@ -97,14 +97,14 @@ const Sales = () => {
   });
   const [activeTab, setActiveTab] = useState('sale');
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
-  const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<ProductSerial | null>(null);
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
   const [returnConfirmId, setReturnConfirmId] = useState<string | null>(null);
+  const [restockConfirmId, setRestockConfirmId] = useState<string | null>(null);
   const [lastSaleData, setLastSaleData] = useState<{
     receiptNo: string;
     date: Date;
     customer: { name: string; phone?: string; address?: string } | null;
-    items: typeof cart;
+    items: { product_name: string; serial_number?: string; quantity: number; unit_price: number; total: number }[];
     paymentMethod: 'cash' | 'bank';
     total: number;
   } | null>(null);
@@ -354,50 +354,133 @@ const Sales = () => {
 
   const formatPrice = (value: number) => formatCurrency(convertToDisplay(value, 'TRY'));
 
-  const handleViewReceipt = (serial: ProductSerial) => {
-    setSelectedSaleForReceipt(serial);
+  const handleViewReceipt = (transaction: Transaction) => {
     setLastSaleData({
-      receiptNo: `S${serial.id.slice(-8).toUpperCase()}`,
-      date: serial.sold_at ? new Date(serial.sold_at) : new Date(),
-      customer: serial.accounts ? {
-        name: serial.accounts.name,
-        phone: serial.accounts.phone || undefined,
+      receiptNo: `S${transaction.id.slice(-8).toUpperCase()}`,
+      date: new Date(transaction.date),
+      customer: transaction.accounts ? {
+        name: transaction.accounts.name,
+        phone: transaction.accounts.phone || undefined,
       } : null,
       items: [{
-        id: serial.id,
-        product_id: serial.product_id,
-        product_name: serial.products?.name || 'Ürün',
-        serial_number: serial.serial_number,
-        quantity: 1,
-        unit_price: serial.sale_price,
-        total: serial.sale_price,
+        product_name: transaction.products?.name || transaction.description || 'Ürün',
+        quantity: transaction.quantity || 1,
+        unit_price: transaction.amount / (transaction.quantity || 1),
+        total: transaction.amount,
       }],
-      paymentMethod: 'cash',
-      total: serial.sale_price,
+      paymentMethod: transaction.payment_method as 'cash' | 'bank',
+      total: transaction.amount,
     });
     setIsReceiptDialogOpen(true);
   };
 
   const handleCancelSale = async () => {
     if (cancelConfirmId) {
-      await cancelSale.mutateAsync(cancelConfirmId);
+      await deleteTransaction.mutateAsync(cancelConfirmId);
       setCancelConfirmId(null);
     }
   };
 
-  const handleReturnSale = async () => {
+  const handleReturnSerial = async () => {
     if (returnConfirmId) {
       await returnSerial.mutateAsync(returnConfirmId);
       setReturnConfirmId(null);
     }
   };
 
+  const handleRestockSerial = async () => {
+    if (restockConfirmId) {
+      await updateSerial.mutateAsync({
+        id: restockConfirmId,
+        status: 'in_stock' as any,
+      });
+      setRestockConfirmId(null);
+      toast.success('Ürün stoğa geri alındı');
+    }
+  };
+
+  // Sales history columns using transactions
   const salesHistoryColumns = [
     {
       key: 'date',
       header: 'Tarih',
-      render: (serial: ProductSerial) => serial.sold_at 
-        ? format(new Date(serial.sold_at), 'dd/MM/yyyy HH:mm', { locale: tr })
+      render: (transaction: Transaction) => format(new Date(transaction.date), 'dd/MM/yyyy', { locale: tr }),
+    },
+    {
+      key: 'description',
+      header: 'Açıklama',
+      render: (transaction: Transaction) => (
+        <div>
+          <p className="font-medium">{transaction.products?.name || 'Satış'}</p>
+          <p className="text-xs text-muted-foreground line-clamp-1">{transaction.description}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'customer',
+      header: 'Müşteri',
+      render: (transaction: Transaction) => transaction.accounts ? (
+        <div>
+          <p className="font-medium">{transaction.accounts.name}</p>
+          {transaction.accounts.phone && (
+            <p className="text-xs text-muted-foreground">{transaction.accounts.phone}</p>
+          )}
+        </div>
+      ) : (
+        <Badge variant="secondary">Anonim</Badge>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Tutar',
+      render: (transaction: Transaction) => (
+        <span className="font-semibold text-primary">{formatPrice(transaction.amount)}</span>
+      ),
+    },
+    {
+      key: 'payment',
+      header: 'Ödeme',
+      render: (transaction: Transaction) => (
+        <Badge variant="outline">
+          {transaction.payment_method === 'cash' ? 'Nakit' : 'Banka'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'İşlemler',
+      render: (transaction: Transaction) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleViewReceipt(transaction)}
+            title="Fişi Görüntüle"
+          >
+            <FileText className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => setCancelConfirmId(transaction.id)}
+            title="Satışı İptal Et"
+          >
+            <XCircle className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  // Returned items columns
+  const returnedColumns = [
+    {
+      key: 'date',
+      header: 'İade Tarihi',
+      render: (serial: ProductSerial) => serial.updated_at 
+        ? format(new Date(serial.updated_at), 'dd/MM/yyyy HH:mm', { locale: tr })
         : '-',
     },
     {
@@ -425,8 +508,74 @@ const Sales = () => {
       ),
     },
     {
+      key: 'prices',
+      header: 'Fiyat Bilgisi',
+      render: (serial: ProductSerial) => (
+        <div className="text-sm">
+          <p>Alış: {formatPrice(serial.purchase_price)}</p>
+          <p>Satış: {formatPrice(serial.sale_price)}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Durum',
+      render: () => (
+        <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300">
+          İade Edildi
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'İşlemler',
+      render: (serial: ProductSerial) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setRestockConfirmId(serial.id)}
+          title="Stoğa Geri Al"
+        >
+          <RefreshCw className="w-4 h-4 mr-1" />
+          Stoğa Al
+        </Button>
+      ),
+    },
+  ];
+
+  // Sold serials columns (for IMEI tracking)
+  const soldSerialsColumns = [
+    {
+      key: 'date',
+      header: 'Satış Tarihi',
+      render: (serial: ProductSerial) => serial.sold_at 
+        ? format(new Date(serial.sold_at), 'dd/MM/yyyy HH:mm', { locale: tr })
+        : '-',
+    },
+    {
+      key: 'product',
+      header: 'Ürün',
+      render: (serial: ProductSerial) => (
+        <div>
+          <p className="font-medium">{serial.products?.name}</p>
+          <p className="text-xs text-muted-foreground">IMEI: {serial.serial_number}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'customer',
+      header: 'Müşteri',
+      render: (serial: ProductSerial) => serial.accounts ? (
+        <div>
+          <p className="font-medium">{serial.accounts.name}</p>
+        </div>
+      ) : (
+        <Badge variant="secondary">Anonim</Badge>
+      ),
+    },
+    {
       key: 'price',
-      header: 'Fiyat',
+      header: 'Satış Fiyatı',
       render: (serial: ProductSerial) => (
         <span className="font-semibold text-primary">{formatPrice(serial.sale_price)}</span>
       ),
@@ -439,29 +588,11 @@ const Sales = () => {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={() => handleViewReceipt(serial)}
-            title="Fişi Görüntüle"
-          >
-            <FileText className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
             className="h-8 w-8 text-orange-500 hover:text-orange-600"
             onClick={() => setReturnConfirmId(serial.id)}
             title="İade Al"
           >
             <RotateCcw className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => setCancelConfirmId(serial.id)}
-            title="Satışı İptal Et"
-          >
-            <XCircle className="w-4 h-4" />
           </Button>
         </div>
       ),
@@ -486,9 +617,18 @@ const Sales = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-4">
             <TabsTrigger value="sale">Satış</TabsTrigger>
             <TabsTrigger value="history">Satış Geçmişi</TabsTrigger>
+            <TabsTrigger value="serials">IMEI Takip</TabsTrigger>
+            <TabsTrigger value="returns">
+              İadeler
+              {returnedSerials.length > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs">
+                  {returnedSerials.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="sale" className="space-y-6">
@@ -810,13 +950,51 @@ const Sales = () => {
           <TabsContent value="history">
             <Card>
               <CardHeader>
-                <CardTitle>Son Satışlar</CardTitle>
+                <CardTitle>Satış Geçmişi</CardTitle>
               </CardHeader>
               <CardContent>
                 <DataTable
                   columns={salesHistoryColumns}
-                  data={soldSerials.slice(0, 50)}
+                  data={salesTransactions.slice(0, 100)}
                 />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="serials">
+            <Card>
+              <CardHeader>
+                <CardTitle>Satılan IMEI'li Cihazlar</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={soldSerialsColumns}
+                  data={soldSerials.slice(0, 100)}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="returns">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5" />
+                  İade Edilen Ürünler
+                  {returnedSerials.length > 0 && (
+                    <Badge variant="destructive">{returnedSerials.length} ürün</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {returnedSerials.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">Henüz iade edilmiş ürün bulunmuyor</p>
+                ) : (
+                  <DataTable
+                    columns={returnedColumns}
+                    data={returnedSerials}
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -921,7 +1099,7 @@ const Sales = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>Satışı İptal Et</AlertDialogTitle>
               <AlertDialogDescription>
-                Bu satışı iptal etmek istediğinizden emin misiniz? Cihaz stoğa geri alınacak.
+                Bu satışı iptal etmek istediğinizden emin misiniz?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -944,8 +1122,26 @@ const Sales = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-              <AlertDialogAction onClick={handleReturnSale} className="bg-orange-500 hover:bg-orange-600">
+              <AlertDialogAction onClick={handleReturnSerial} className="bg-orange-500 hover:bg-orange-600">
                 İade Al
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Restock Confirmation */}
+        <AlertDialog open={!!restockConfirmId} onOpenChange={() => setRestockConfirmId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Stoğa Geri Al</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bu ürünü tekrar stoğa almak istediğinizden emin misiniz?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRestockSerial}>
+                Stoğa Al
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

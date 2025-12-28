@@ -17,6 +17,8 @@ export interface Transaction {
   currency: 'TRY' | 'USD';
   bank_account_id?: string | null;
   created_at: string;
+  accounts?: { name: string; phone?: string | null } | null;
+  products?: { name: string } | null;
 }
 
 export type TransactionInput = Omit<Transaction, 'id' | 'user_id' | 'created_at'>;
@@ -30,14 +32,17 @@ export const useTransactions = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, accounts(name), products(name)')
+        .select('*, accounts(name, phone), products(name)')
         .order('date', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as Transaction[];
     },
     enabled: !!user,
   });
+
+  // Get sales transactions
+  const salesTransactions = transactionsQuery.data?.filter(t => t.type === 'sale') ?? [];
 
   const createTransaction = useMutation({
     mutationFn: async (transaction: TransactionInput) => {
@@ -98,6 +103,7 @@ export const useTransactions = () => {
 
   return {
     transactions: transactionsQuery.data ?? [],
+    salesTransactions,
     isLoading: transactionsQuery.isLoading,
     createTransaction,
     updateTransaction,
