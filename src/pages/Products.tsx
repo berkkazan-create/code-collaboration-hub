@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -38,18 +39,21 @@ import {
 } from '@/components/ui/sheet';
 import { useProducts, Product, ProductInput } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
+import { useProductSerials } from '@/hooks/useProductSerials';
 
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { StockMovementHistory } from '@/components/StockMovementHistory';
-import { Plus, Search, Edit, Trash2, Download, Package, ScanBarcode, Tag, History, Database } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Download, Package, ScanBarcode, Tag, History, Database, Smartphone, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useCurrencyDisplay } from '@/hooks/useCurrencyDisplay';
 import { CurrencyToggle } from '@/components/CurrencyToggle';
+import { Card, CardContent } from '@/components/ui/card';
 
 const Products = () => {
   const { products, isLoading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { categories } = useCategories();
+  const { createSerial } = useProductSerials();
   const { isAdmin } = useUserRole();
   const { displayCurrency, toggleCurrency, formatCurrency, convertToDisplay, rate, isLoading: rateLoading } = useCurrencyDisplay();
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +64,10 @@ const Products = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isAddingDummy, setIsAddingDummy] = useState(false);
+
+  // IMEI/Serial number state
+  const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
+  const [currentSerialInput, setCurrentSerialInput] = useState('');
 
   const [formData, setFormData] = useState<ProductInput & { barcode?: string }>({
     name: '',
@@ -74,6 +82,16 @@ const Products = () => {
     barcode: '',
   });
 
+  // Check if selected category requires serial numbers
+  const selectedCategory = useMemo(() => {
+    return categories.find(c => c.name === formData.category);
+  }, [categories, formData.category]);
+
+  const requiresSerial = selectedCategory?.requires_serial || false;
+
+  // Validate serial count matches quantity
+  const serialCountValid = !requiresSerial || serialNumbers.length === formData.quantity;
+
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,14 +104,82 @@ const Products = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const handleAddSerial = () => {
+    const trimmed = currentSerialInput.trim();
+    if (!trimmed) {
+      toast.error('IMEI numarası boş olamaz');
+      return;
+    }
+    if (serialNumbers.includes(trimmed)) {
+      toast.error('Bu IMEI numarası zaten eklenmiş');
+      return;
+    }
+    if (serialNumbers.length >= formData.quantity) {
+      toast.error(`Maksimum ${formData.quantity} adet IMEI girebilirsiniz`);
+      return;
+    }
+    setSerialNumbers([...serialNumbers, trimmed]);
+    setCurrentSerialInput('');
+  };
+
+  const handleRemoveSerial = (index: number) => {
+    setSerialNumbers(serialNumbers.filter((_, i) => i !== index));
+  };
+
+  const handleBulkSerialInput = (text: string) => {
+    // Parse multiple IMEI numbers (comma, newline, or space separated)
+    const imeis = text
+      .split(/[,\n\s]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    
+    const uniqueImeis = [...new Set(imeis)];
+    const newSerials = uniqueImeis.filter(imei => !serialNumbers.includes(imei));
+    
+    if (newSerials.length + serialNumbers.length > formData.quantity) {
+      toast.error(`Toplam ${formData.quantity} adet IMEI girebilirsiniz`);
+      return;
+    }
+    
+    setSerialNumbers([...serialNumbers, ...newSerials]);
+    setCurrentSerialInput('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProduct) {
-      await updateProduct.mutateAsync({ id: editingProduct.id, ...formData });
-    } else {
-      await createProduct.mutateAsync(formData);
+    
+    // Validate serial numbers if required
+    if (requiresSerial && serialNumbers.length !== formData.quantity) {
+      toast.error(`${formData.quantity} adet IMEI numarası girmeniz gerekiyor (${serialNumbers.length} girildi)`);
+      return;
     }
-    handleCloseDialog();
+
+    try {
+      let productResult: any;
+      
+      if (editingProduct) {
+        productResult = await updateProduct.mutateAsync({ id: editingProduct.id, ...formData });
+      } else {
+        productResult = await createProduct.mutateAsync(formData);
+      }
+
+      // Create serial numbers if required and product created successfully
+      if (requiresSerial && serialNumbers.length > 0 && productResult?.id) {
+        for (const serial of serialNumbers) {
+          await createSerial.mutateAsync({
+            product_id: productResult.id,
+            serial_number: serial,
+            purchase_price: formData.purchase_price,
+            sale_price: formData.sale_price,
+          });
+        }
+        toast.success(`${serialNumbers.length} adet IMEI kaydedildi`);
+      }
+
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error saving product:', error);
+    }
   };
 
   const handleEdit = (product: Product) => {
@@ -110,6 +196,7 @@ const Products = () => {
       category: product.category || '',
       barcode: (product as any).barcode || '',
     });
+    setSerialNumbers([]);
     setIsDialogOpen(true);
   };
 
@@ -128,6 +215,8 @@ const Products = () => {
       category: '',
       barcode: '',
     });
+    setSerialNumbers([]);
+    setCurrentSerialInput('');
   };
 
   const handleDelete = async () => {
@@ -254,6 +343,7 @@ const Products = () => {
         const category = categories.find((c) => c.name === product.category);
         return product.category ? (
           <Badge variant="outline" style={{ borderColor: category?.color, color: category?.color }}>
+            {category?.requires_serial && <Smartphone className="w-3 h-3 mr-1" />}
             {product.category}
           </Badge>
         ) : (
@@ -335,7 +425,7 @@ const Products = () => {
                   <span className="hidden sm:inline">Yeni Ürün</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingProduct ? 'Ürünü Düzenle' : 'Yeni Ürün Ekle'}
@@ -380,7 +470,10 @@ const Products = () => {
                       <Label>Kategori</Label>
                       <Select
                         value={formData.category || ''}
-                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                        onValueChange={(value) => {
+                          setFormData({ ...formData, category: value });
+                          setSerialNumbers([]); // Reset serials when category changes
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Kategori seçin" />
@@ -394,6 +487,9 @@ const Products = () => {
                                   style={{ backgroundColor: category.color }}
                                 />
                                 {category.name}
+                                {category.requires_serial && (
+                                  <Badge variant="outline" className="ml-1 text-xs">IMEI</Badge>
+                                )}
                               </div>
                             </SelectItem>
                           ))}
@@ -405,10 +501,16 @@ const Products = () => {
                       <Input
                         type="number"
                         value={formData.quantity}
-                        onChange={(e) =>
-                          setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })
-                        }
+                        onChange={(e) => {
+                          const qty = parseInt(e.target.value) || 0;
+                          setFormData({ ...formData, quantity: qty });
+                          // Trim serial numbers if quantity reduced
+                          if (serialNumbers.length > qty) {
+                            setSerialNumbers(serialNumbers.slice(0, qty));
+                          }
+                        }}
                         required
+                        min={requiresSerial ? 1 : 0}
                       />
                     </div>
                     <div>
@@ -466,11 +568,98 @@ const Products = () => {
                       />
                     </div>
                   </div>
+
+                  {/* IMEI/Serial Number Section */}
+                  {requiresSerial && formData.quantity > 0 && (
+                    <Card className="border-primary/50 bg-primary/5">
+                      <CardContent className="pt-4 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="w-5 h-5 text-primary" />
+                          <Label className="text-base font-semibold">
+                            IMEI Numaraları ({serialNumbers.length}/{formData.quantity})
+                          </Label>
+                          {!serialCountValid && (
+                            <Badge variant="destructive" className="ml-auto">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              {formData.quantity - serialNumbers.length} eksik
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground">
+                          Bu kategorideki ürünler için {formData.quantity} adet IMEI numarası girmeniz zorunludur.
+                        </p>
+
+                        {/* Single IMEI input */}
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="IMEI numarası girin..."
+                            value={currentSerialInput}
+                            onChange={(e) => setCurrentSerialInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddSerial();
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleAddSerial}
+                            disabled={serialNumbers.length >= formData.quantity}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+
+                        {/* Bulk input */}
+                        <div>
+                          <Label className="text-sm">Toplu IMEI Girişi (virgül, boşluk veya satır ile ayırın)</Label>
+                          <Textarea
+                            placeholder="IMEI1, IMEI2, IMEI3..."
+                            className="mt-1"
+                            onBlur={(e) => {
+                              if (e.target.value.trim()) {
+                                handleBulkSerialInput(e.target.value);
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {/* Added serials list */}
+                        {serialNumbers.length > 0 && (
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {serialNumbers.map((serial, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-2 bg-background rounded-md border"
+                              >
+                                <span className="font-mono text-sm">
+                                  {index + 1}. {serial}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:text-destructive"
+                                  onClick={() => handleRemoveSerial(index)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={handleCloseDialog}>
                       İptal
                     </Button>
-                    <Button type="submit">
+                    <Button type="submit" disabled={requiresSerial && !serialCountValid}>
                       {editingProduct ? 'Güncelle' : 'Ekle'}
                     </Button>
                   </div>
