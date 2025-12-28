@@ -60,6 +60,9 @@ import {
   Eye,
   Trash2,
   History,
+  Printer,
+  Copy,
+  Lock,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -74,7 +77,9 @@ import {
   ServiceAttachment,
   ServiceHistory,
 } from '@/hooks/useServiceRecords';
-
+import { PatternLock } from '@/components/PatternLock';
+import { ServiceReceipt } from '@/components/ServiceReceipt';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 const TechnicalService = () => {
   const {
     records,
@@ -108,6 +113,7 @@ const TechnicalService = () => {
     device_imei: '',
     device_color: '',
     screen_password: '',
+    screen_password_type: 'none' as 'none' | 'pin' | 'pattern' | 'password',
     has_scratches: false,
     scratch_locations: '',
     physical_condition: '',
@@ -192,6 +198,7 @@ const TechnicalService = () => {
       device_imei: '',
       device_color: '',
       screen_password: '',
+      screen_password_type: 'none',
       has_scratches: false,
       scratch_locations: '',
       physical_condition: '',
@@ -203,6 +210,11 @@ const TechnicalService = () => {
       customer_address: '',
       reported_issue: '',
     });
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Takip numarası kopyalandı');
   };
 
   const handleViewDetails = async (record: ServiceRecord) => {
@@ -433,6 +445,7 @@ const TechnicalService = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Takip No</TableHead>
                       <TableHead>Tarih</TableHead>
                       <TableHead>Müşteri</TableHead>
                       <TableHead>Cihaz</TableHead>
@@ -445,6 +458,23 @@ const TechnicalService = () => {
                   <TableBody>
                     {filteredRecords.map((record) => (
                       <TableRow key={record.id} className="hover:bg-muted/50">
+                        <TableCell className="whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                              {record.tracking_number || '-'}
+                            </code>
+                            {record.tracking_number && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => copyToClipboard(record.tracking_number!)}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {format(new Date(record.received_at), 'dd/MM/yyyy', { locale: tr })}
                         </TableCell>
@@ -487,6 +517,7 @@ const TechnicalService = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
+                            <ServiceReceipt record={record} />
                             <Button
                               variant="ghost"
                               size="icon"
@@ -585,22 +616,84 @@ const TechnicalService = () => {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Renk</Label>
-                    <Input
-                      value={formData.device_color}
-                      onChange={(e) => setFormData({ ...formData, device_color: e.target.value })}
-                    />
+                <div>
+                  <Label>Renk</Label>
+                  <Input
+                    value={formData.device_color}
+                    onChange={(e) => setFormData({ ...formData, device_color: e.target.value })}
+                  />
+                </div>
+                
+                <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4" />
+                    <Label className="font-semibold">Ekran Kilidi</Label>
                   </div>
-                  <div>
-                    <Label>Ekran Şifresi</Label>
-                    <Input
-                      value={formData.screen_password}
-                      onChange={(e) => setFormData({ ...formData, screen_password: e.target.value })}
-                      placeholder="PIN, desen veya şifre"
-                    />
-                  </div>
+                  
+                  <RadioGroup
+                    value={formData.screen_password_type}
+                    onValueChange={(v: 'none' | 'pin' | 'pattern' | 'password') => 
+                      setFormData({ ...formData, screen_password_type: v, screen_password: '' })
+                    }
+                    className="flex flex-wrap gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="none" id="pwd-none" />
+                      <Label htmlFor="pwd-none">Kilit Yok</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pin" id="pwd-pin" />
+                      <Label htmlFor="pwd-pin">PIN</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pattern" id="pwd-pattern" />
+                      <Label htmlFor="pwd-pattern">Desen</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="password" id="pwd-password" />
+                      <Label htmlFor="pwd-password">Şifre</Label>
+                    </div>
+                  </RadioGroup>
+
+                  {formData.screen_password_type === 'pin' && (
+                    <div>
+                      <Label>PIN Kodu</Label>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={formData.screen_password}
+                        onChange={(e) => setFormData({ ...formData, screen_password: e.target.value.replace(/\D/g, '') })}
+                        placeholder="PIN girin (ör: 1234)"
+                        maxLength={16}
+                      />
+                    </div>
+                  )}
+
+                  {formData.screen_password_type === 'pattern' && (
+                    <div>
+                      <Label>Desen Çizin</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Noktaları sürükleyerek deseni çizin (1-9 arası noktalar)
+                      </p>
+                      <PatternLock
+                        value={formData.screen_password}
+                        onChange={(pattern) => setFormData({ ...formData, screen_password: pattern })}
+                      />
+                    </div>
+                  )}
+
+                  {formData.screen_password_type === 'password' && (
+                    <div>
+                      <Label>Şifre</Label>
+                      <Input
+                        type="text"
+                        value={formData.screen_password}
+                        onChange={(e) => setFormData({ ...formData, screen_password: e.target.value })}
+                        placeholder="Şifreyi girin"
+                      />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 

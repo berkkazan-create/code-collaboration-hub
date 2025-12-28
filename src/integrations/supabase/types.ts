@@ -489,7 +489,9 @@ export type Database = {
           reported_issue: string
           scratch_locations: string | null
           screen_password: string | null
+          screen_password_type: string | null
           status: Database["public"]["Enums"]["service_status"] | null
+          tracking_number: string | null
           updated_at: string
           user_id: string
           warranty_duration_days: number | null
@@ -537,7 +539,9 @@ export type Database = {
           reported_issue: string
           scratch_locations?: string | null
           screen_password?: string | null
+          screen_password_type?: string | null
           status?: Database["public"]["Enums"]["service_status"] | null
+          tracking_number?: string | null
           updated_at?: string
           user_id: string
           warranty_duration_days?: number | null
@@ -585,7 +589,9 @@ export type Database = {
           reported_issue?: string
           scratch_locations?: string | null
           screen_password?: string | null
+          screen_password_type?: string | null
           status?: Database["public"]["Enums"]["service_status"] | null
+          tracking_number?: string | null
           updated_at?: string
           user_id?: string
           warranty_duration_days?: number | null
