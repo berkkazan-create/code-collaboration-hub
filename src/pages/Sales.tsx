@@ -292,8 +292,17 @@ const Sales = () => {
   };
 
   const handlePrintReceipt = () => {
-    const printContent = receiptRef.current;
-    if (!printContent) return;
+    if (!lastSaleData) {
+      toast.error('Fiş verisi bulunamadı');
+      return;
+    }
+
+    const formatCurrencyPrint = (amount: number) => {
+      return new Intl.NumberFormat('tr-TR', {
+        style: 'currency',
+        currency: 'TRY',
+      }).format(amount);
+    };
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -301,55 +310,105 @@ const Sales = () => {
       return;
     }
 
-    printWindow.document.write(`
+    const itemsHtml = lastSaleData.items.map(item => `
+      <div style="margin-bottom: 8px; font-size: 10px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="flex: 1;">${item.product_name}</span>
+          <span style="width: 40px; text-align: center;">${item.quantity}</span>
+          <span style="width: 70px; text-align: right;">${formatCurrencyPrint(item.total)}</span>
+        </div>
+        ${item.serial_number ? `<p style="font-size: 8px; color: #666; padding-left: 8px;">IMEI: ${item.serial_number}</p>` : ''}
+      </div>
+    `).join('');
+
+    const customerHtml = lastSaleData.customer ? `
+      <div style="margin-bottom: 16px; border-top: 1px dashed #ccc; padding-top: 8px; font-size: 10px;">
+        <p style="font-weight: 600;">MÜŞTERİ:</p>
+        <p>${lastSaleData.customer.name}</p>
+        ${lastSaleData.customer.phone ? `<p>Tel: ${lastSaleData.customer.phone}</p>` : ''}
+        ${lastSaleData.customer.address ? `<p>${lastSaleData.customer.address}</p>` : ''}
+      </div>
+    ` : '';
+
+    const receiptHtml = `
       <!DOCTYPE html>
       <html>
         <head>
           <title>Satış Fişi</title>
           <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
-              font-family: monospace;
-              margin: 0;
-              padding: 20px;
+              font-family: 'Courier New', monospace;
+              padding: 10px;
               background: white;
+              color: black;
             }
             .receipt {
               width: 80mm;
               margin: 0 auto;
-              font-size: 12px;
             }
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            .font-bold { font-weight: bold; }
-            .border-dashed { border-style: dashed; }
-            .mb-4 { margin-bottom: 16px; }
-            .mt-4 { margin-top: 16px; }
-            .pt-2 { padding-top: 8px; }
-            .pb-4 { padding-bottom: 16px; }
-            .border-t { border-top: 1px dashed #ccc; }
-            .border-b { border-bottom: 1px dashed #ccc; }
-            .flex { display: flex; }
-            .justify-between { justify-content: space-between; }
-            .text-xs { font-size: 10px; }
-            .text-sm { font-size: 12px; }
-            .text-lg { font-size: 16px; }
             @media print {
               body { padding: 0; }
+              .receipt { width: 100%; }
             }
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          <div class="receipt">
+            <div style="text-align: center; margin-bottom: 16px; border-bottom: 1px dashed #ccc; padding-bottom: 16px;">
+              <h1 style="font-size: 18px; font-weight: bold;">SERVİSİUM</h1>
+              <p style="font-size: 10px; margin-top: 4px;">SATIŞ FİŞİ</p>
+            </div>
+
+            <div style="margin-bottom: 16px; font-size: 10px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Fiş No:</span>
+                <span style="font-weight: 600;">${lastSaleData.receiptNo}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Tarih:</span>
+                <span>${lastSaleData.date.toLocaleDateString('tr-TR')} ${lastSaleData.date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Ödeme:</span>
+                <span>${lastSaleData.paymentMethod === 'cash' ? 'NAKİT' : 'BANKA'}</span>
+              </div>
+            </div>
+
+            ${customerHtml}
+
+            <div style="border-top: 1px dashed #ccc; padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 8px; font-size: 10px;">
+                <span style="flex: 1;">ÜRÜN</span>
+                <span style="width: 40px; text-align: center;">AD.</span>
+                <span style="width: 70px; text-align: right;">TUTAR</span>
+              </div>
+              ${itemsHtml}
+            </div>
+
+            <div style="border-top: 2px double #ccc; margin-top: 16px; padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
+                <span>TOPLAM:</span>
+                <span>${formatCurrencyPrint(lastSaleData.total)}</span>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 24px; border-top: 1px dashed #ccc; padding-top: 16px; font-size: 9px;">
+              <p>Bizi tercih ettiğiniz için</p>
+              <p style="font-weight: 600;">TEŞEKKÜR EDERİZ</p>
+            </div>
+          </div>
         </body>
       </html>
-    `);
+    `;
 
+    printWindow.document.write(receiptHtml);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
-    }, 250);
+    }, 300);
   };
 
   const formatPrice = (value: number) => formatCurrency(convertToDisplay(value, 'TRY'));
