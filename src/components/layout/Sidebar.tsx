@@ -28,12 +28,14 @@ import {
   ChevronDown,
   UserCog,
   FolderTree,
+  Wrench,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/sales', label: 'Satış', icon: ShoppingCart },
+  { href: '/service', label: 'Teknik Servis', icon: Wrench },
   { href: '/products', label: 'Stok Yönetimi', icon: Package },
   { href: '/categories', label: 'Kategoriler', icon: FolderTree },
   { href: '/stock-history', label: 'Stok Hareketleri', icon: History },

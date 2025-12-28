@@ -18,6 +18,7 @@ import UserPermissions from "./pages/UserPermissions";
 import AdminPanel from "./pages/AdminPanel";
 import Categories from "./pages/Categories";
 import Sales from "./pages/Sales";
+import TechnicalService from "./pages/TechnicalService";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -131,6 +132,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Sales />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/service"
+        element={
+          <ProtectedRoute>
+            <TechnicalService />
           </ProtectedRoute>
         }
       />
