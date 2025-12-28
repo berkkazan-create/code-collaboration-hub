@@ -112,6 +112,7 @@ export type Database = {
           id: string
           name: string
           parent_id: string | null
+          requires_serial: boolean | null
           user_id: string
         }
         Insert: {
@@ -121,6 +122,7 @@ export type Database = {
           id?: string
           name: string
           parent_id?: string | null
+          requires_serial?: boolean | null
           user_id: string
         }
         Update: {
@@ -130,6 +132,7 @@ export type Database = {
           id?: string
           name?: string
           parent_id?: string | null
+          requires_serial?: boolean | null
           user_id?: string
         }
         Relationships: [
@@ -210,6 +213,76 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      product_serials: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          product_id: string
+          purchase_price: number | null
+          sale_price: number | null
+          serial_number: string
+          sold_at: string | null
+          sold_to_account_id: string | null
+          status: string
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          purchase_price?: number | null
+          sale_price?: number | null
+          serial_number: string
+          sold_at?: string | null
+          sold_to_account_id?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          purchase_price?: number | null
+          sale_price?: number | null
+          serial_number?: string
+          sold_at?: string | null
+          sold_to_account_id?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_serials_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_serials_sold_to_account_id_fkey"
+            columns: ["sold_to_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_serials_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {

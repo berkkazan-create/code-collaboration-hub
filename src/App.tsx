@@ -17,6 +17,7 @@ import Accounting from "./pages/Accounting";
 import UserPermissions from "./pages/UserPermissions";
 import AdminPanel from "./pages/AdminPanel";
 import Categories from "./pages/Categories";
+import Sales from "./pages/Sales";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -122,6 +123,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Categories />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales"
+        element={
+          <ProtectedRoute>
+            <Sales />
           </ProtectedRoute>
         }
       />
