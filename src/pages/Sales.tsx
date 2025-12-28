@@ -169,6 +169,15 @@ const Sales = () => {
     ));
   };
 
+  const updatePrice = (itemId: string, newPrice: number) => {
+    if (newPrice < 0) return;
+    setCart(cart.map(item =>
+      item.id === itemId
+        ? { ...item, unit_price: newPrice, total: item.quantity * newPrice }
+        : item
+    ));
+  };
+
   const handleCreateCustomer = async () => {
     if (!newCustomerData.name || !newCustomerData.phone) {
       toast.error('İsim ve telefon zorunludur');
@@ -516,7 +525,17 @@ const Sales = () => {
                                 </>
                               )}
                             </div>
-                            <span className="font-semibold min-w-[80px] text-right">
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground">₺</span>
+                              <Input
+                                type="number"
+                                value={item.unit_price}
+                                onChange={(e) => updatePrice(item.id, parseFloat(e.target.value) || 0)}
+                                className="w-24 h-8 text-right font-semibold"
+                                step="0.01"
+                              />
+                            </div>
+                            <span className="font-semibold min-w-[80px] text-right text-primary">
                               {formatPrice(item.total)}
                             </span>
                             <Button
