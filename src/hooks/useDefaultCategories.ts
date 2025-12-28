@@ -22,6 +22,7 @@ export const useDefaultCategories = () => {
           color: category.color,
           description: category.description,
           parent_id: null,
+          requires_serial: false,
         });
       }
     };

@@ -32,8 +32,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Plus, Edit, Trash2, ChevronRight, FolderOpen, Folder } from 'lucide-react';
-
+import { Plus, Edit, Trash2, ChevronRight, FolderOpen, Folder, Smartphone } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 const CATEGORY_COLORS = [
   '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444',
   '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1',
@@ -55,6 +55,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
     description: '',
     color: '#10b981',
     parent_id: null,
+    requires_serial: false,
   });
 
   const toggleCategory = (id: string) => {
@@ -80,6 +81,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
       description: category.description || '',
       color: category.color,
       parent_id: category.parent_id,
+      requires_serial: category.requires_serial || false,
     });
     setIsDialogOpen(true);
   };
@@ -92,6 +94,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
       description: '',
       color: '#10b981',
       parent_id: null,
+      requires_serial: false,
     });
   };
 
@@ -108,6 +111,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
       description: '',
       color: '#10b981',
       parent_id: parentId,
+      requires_serial: false,
     });
     setIsDialogOpen(true);
   };
@@ -130,7 +134,7 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" onClick={() => {
-              setFormData({ name: '', description: '', color: '#10b981', parent_id: null });
+              setFormData({ name: '', description: '', color: '#10b981', parent_id: null, requires_serial: false });
               setEditingCategory(null);
             }}>
               <Plus className="w-4 h-4 mr-2" />
@@ -195,6 +199,19 @@ export const CategoryManager = ({ onSelectCategory, selectedCategoryId }: Catego
                     />
                   ))}
                 </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-primary" />
+                  <div>
+                    <Label className="font-medium">IMEI/Seri No Zorunlu</Label>
+                    <p className="text-xs text-muted-foreground">Stok girişinde IMEI zorunlu olsun</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={formData.requires_serial}
+                  onCheckedChange={(checked) => setFormData({ ...formData, requires_serial: checked })}
+                />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>

@@ -10,6 +10,7 @@ export interface Category {
   description: string | null;
   color: string;
   parent_id: string | null;
+  requires_serial: boolean;
   created_at: string;
 }
 
