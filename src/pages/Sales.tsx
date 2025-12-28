@@ -149,17 +149,30 @@ const Sales = () => {
   const addToCart = (product: any, serial?: ProductSerial) => {
     const requiresSerialForProduct = !!categories.find(c => c.name === product.category)?.requires_serial;
 
-    // Prevent adding IMEI-required products without selecting a specific serial
+    // For IMEI-required products, auto-assign a random available serial if not provided
+    let finalSerial = serial;
     if (requiresSerialForProduct && !serial) {
-      toast.error('Bu ürün için IMEI seçerek ekleme yapmalısınız (IMEI ile arayın).');
-      return;
+      const availableSerials = inStockSerials.filter(s => s.product_id === product.id);
+      if (availableSerials.length === 0) {
+        toast.error('Bu ürün için stokta IMEI bulunamadı.');
+        return;
+      }
+      // Pick a random available serial
+      finalSerial = availableSerials[Math.floor(Math.random() * availableSerials.length)];
+      toast.info(`IMEI otomatik atandı: ${finalSerial.serial_number}`);
     }
 
     const existingItem = cart.find(item => 
-      serial ? item.serial_id === serial.id : item.product_id === product.id && !item.serial_id
+      finalSerial ? item.serial_id === finalSerial.id : item.product_id === product.id && !item.serial_id
     );
 
-    if (existingItem && !serial) {
+    // Don't allow adding the same serial twice
+    if (finalSerial && cart.some(item => item.serial_id === finalSerial.id)) {
+      toast.error('Bu IMEI zaten sepette.');
+      return;
+    }
+
+    if (existingItem && !finalSerial) {
       // Increase quantity for non-serial products
       setCart(cart.map(item => 
         item.id === existingItem.id 
@@ -172,11 +185,11 @@ const Sales = () => {
         id: crypto.randomUUID(),
         product_id: product.id,
         product_name: product.name,
-        serial_number: serial?.serial_number,
-        serial_id: serial?.id,
+        serial_number: finalSerial?.serial_number,
+        serial_id: finalSerial?.id,
         quantity: 1,
-        unit_price: serial?.sale_price || product.sale_price,
-        total: serial?.sale_price || product.sale_price,
+        unit_price: finalSerial?.sale_price || product.sale_price,
+        total: finalSerial?.sale_price || product.sale_price,
       };
       setCart([...cart, newItem]);
     }
@@ -423,37 +436,53 @@ const Sales = () => {
 
   const formatPrice = (value: number) => formatCurrency(convertToDisplay(value, 'TRY'));
 
-  const handleViewReceipt = (transaction: Transaction) => {
-    // Parse items from description to extract IMEI info
-    const description = transaction.description || '';
+  const handleViewReceipt = async (transaction: Transaction) => {
+    // Fetch IMEI info directly from product_serials table for this transaction
+    const transactionSerials = [...soldSerials, ...returnedSerials].filter(
+      s => s.transaction_id === transaction.id
+    );
+
     const items: { product_name: string; serial_number?: string; quantity: number; unit_price: number; total: number }[] = [];
-    
-    // Check if description contains "Satış:" format with IMEI info
-    if (description.startsWith('Satış:')) {
-      const itemsText = description.replace('Satış:', '').trim();
-      const itemParts = itemsText.split(',').map(s => s.trim());
-      
-      itemParts.forEach((part, index) => {
-        // Extract IMEI from format "Product Name (IMEI: 123456)"
-        const imeiMatch = part.match(/\(IMEI:\s*([^)]+)\)/);
-        const productName = part.replace(/\s*\(IMEI:\s*[^)]+\)/, '').trim();
-        
+
+    if (transactionSerials.length > 0) {
+      // Use actual serial data from product_serials
+      transactionSerials.forEach(serial => {
         items.push({
-          product_name: productName || transaction.products?.name || 'Ürün',
-          serial_number: imeiMatch ? imeiMatch[1].trim() : undefined,
+          product_name: serial.products?.name || 'Ürün',
+          serial_number: serial.serial_number,
           quantity: 1,
-          unit_price: transaction.amount / (transaction.quantity || 1),
-          total: transaction.amount / (transaction.quantity || itemParts.length),
+          unit_price: serial.sale_price || 0,
+          total: serial.sale_price || 0,
         });
       });
     } else {
-      // Fallback for older transactions without IMEI format
-      items.push({
-        product_name: transaction.products?.name || description || 'Ürün',
-        quantity: transaction.quantity || 1,
-        unit_price: transaction.amount / (transaction.quantity || 1),
-        total: transaction.amount,
-      });
+      // Fallback: parse from description for older transactions or non-serial items
+      const description = transaction.description || '';
+      
+      if (description.startsWith('Satış:')) {
+        const itemsText = description.replace('Satış:', '').trim();
+        const itemParts = itemsText.split(',').map(s => s.trim());
+        
+        itemParts.forEach((part) => {
+          const imeiMatch = part.match(/\(IMEI:\s*([^)]+)\)/);
+          const productName = part.replace(/\s*\(IMEI:\s*[^)]+\)/, '').trim();
+          
+          items.push({
+            product_name: productName || transaction.products?.name || 'Ürün',
+            serial_number: imeiMatch ? imeiMatch[1].trim() : undefined,
+            quantity: 1,
+            unit_price: transaction.amount / (transaction.quantity || 1),
+            total: transaction.amount / (transaction.quantity || itemParts.length),
+          });
+        });
+      } else {
+        items.push({
+          product_name: transaction.products?.name || description || 'Ürün',
+          quantity: transaction.quantity || 1,
+          unit_price: transaction.amount / (transaction.quantity || 1),
+          total: transaction.amount,
+        });
+      }
     }
 
     setLastSaleData({
@@ -545,28 +574,44 @@ const Sales = () => {
     {
       key: 'actions',
       header: 'İşlemler',
-      render: (transaction: Transaction) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => handleViewReceipt(transaction)}
-            title="Fişi Görüntüle"
-          >
-            <FileText className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => setCancelConfirmId(transaction.id)}
-            title="Satışı İptal Et"
-          >
-            <XCircle className="w-4 h-4" />
-          </Button>
-        </div>
-      ),
+      render: (transaction: Transaction) => {
+        // Check if this transaction has serials that can be returned
+        const transactionSerials = soldSerials.filter(s => s.transaction_id === transaction.id);
+        
+        return (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleViewReceipt(transaction)}
+              title="Fişi Görüntüle"
+            >
+              <FileText className="w-4 h-4" />
+            </Button>
+            {transactionSerials.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-orange-500 hover:text-orange-600"
+                onClick={() => setReturnConfirmId(transactionSerials[0].id)}
+                title="İade Al"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => setCancelConfirmId(transaction.id)}
+              title="Satışı İptal Et"
+            >
+              <XCircle className="w-4 h-4" />
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
