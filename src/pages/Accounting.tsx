@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,9 @@ import {
   ArrowDownRight,
   Banknote,
   BarChart3,
+  Calendar,
+  FileText,
+  Download,
 } from 'lucide-react';
 import {
   BarChart,
@@ -54,6 +58,10 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, isWithinInterval, format } from 'date-fns';
+import { tr } from 'date-fns/locale';
+
+type ReportPeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
 const Accounting = () => {
   const { bankAccounts, createBankAccount, isLoading: bankLoading } = useBankAccounts();
@@ -62,6 +70,7 @@ const Accounting = () => {
   const { cashBalance, cashIncome, cashExpense, cashTransactions } = useCashRegister();
   const { monthlyData } = useMonthlyStats(6);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('all');
   const [formData, setFormData] = useState({
     name: '',
     bank_name: '',
@@ -72,25 +81,87 @@ const Accounting = () => {
     notes: '',
   });
 
-  // Calculate totals
+  // Filter transactions by period
+  const getDateRange = (period: ReportPeriod) => {
+    const now = new Date();
+    switch (period) {
+      case 'daily':
+        return { start: startOfDay(now), end: endOfDay(now) };
+      case 'weekly':
+        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+      case 'monthly':
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      default:
+        return null;
+    }
+  };
+
+  const filteredTransactions = useMemo(() => {
+    const range = getDateRange(reportPeriod);
+    if (!range) return transactions;
+    
+    return transactions.filter(t => {
+      const transDate = new Date(t.date);
+      return isWithinInterval(transDate, { start: range.start, end: range.end });
+    });
+  }, [transactions, reportPeriod]);
+
+  const filteredCashTransactions = useMemo(() => {
+    const range = getDateRange(reportPeriod);
+    if (!range) return cashTransactions;
+    
+    return cashTransactions.filter(t => {
+      const transDate = new Date(t.date);
+      return isWithinInterval(transDate, { start: range.start, end: range.end });
+    });
+  }, [cashTransactions, reportPeriod]);
+
+  // Report period label
+  const getPeriodLabel = () => {
+    const now = new Date();
+    switch (reportPeriod) {
+      case 'daily':
+        return format(now, 'dd MMMM yyyy', { locale: tr });
+      case 'weekly':
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+        return `${format(weekStart, 'dd MMM', { locale: tr })} - ${format(weekEnd, 'dd MMM yyyy', { locale: tr })}`;
+      case 'monthly':
+        return format(now, 'MMMM yyyy', { locale: tr });
+      default:
+        return 'Tüm Zamanlar';
+    }
+  };
+
+  // Calculate totals based on filtered transactions
   const totalBankBalance = bankAccounts.reduce((sum, acc) => {
     const balance = Number(acc.balance);
     return sum + convertToDisplay(balance, acc.currency || 'TRY');
   }, 0);
 
-  const totalIncome = transactions
+  const periodIncome = filteredTransactions
     .filter((t) => t.type === 'income' || t.type === 'sale')
     .reduce((sum, t) => {
       const amount = Number(t.amount);
       return sum + convertToDisplay(amount, t.currency || 'TRY');
     }, 0);
 
-  const totalExpense = transactions
+  const periodExpense = filteredTransactions
     .filter((t) => t.type === 'expense' || t.type === 'purchase')
     .reduce((sum, t) => {
       const amount = Number(t.amount);
       return sum + convertToDisplay(amount, t.currency || 'TRY');
     }, 0);
+
+  const periodCashIncome = filteredCashTransactions
+    .filter((t) => t.type === 'income' || t.type === 'sale')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const periodCashExpense = filteredCashTransactions
+    .filter((t) => t.type === 'expense' || t.type === 'purchase')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const periodNet = periodIncome - periodExpense;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +286,101 @@ const Accounting = () => {
           </div>
         </div>
 
+        {/* Report Period Selector */}
+        <Card className="animate-slide-up">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Rapor Dönemi</p>
+                  <p className="text-lg font-semibold">{getPeriodLabel()}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={reportPeriod === 'daily' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setReportPeriod('daily')}
+                >
+                  Günlük
+                </Button>
+                <Button
+                  variant={reportPeriod === 'weekly' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setReportPeriod('weekly')}
+                >
+                  Haftalık
+                </Button>
+                <Button
+                  variant={reportPeriod === 'monthly' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setReportPeriod('monthly')}
+                >
+                  Aylık
+                </Button>
+                <Button
+                  variant={reportPeriod === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setReportPeriod('all')}
+                >
+                  Tümü
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Period Report Summary */}
+        {reportPeriod !== 'all' && (
+          <Card className="animate-slide-up border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                <CardTitle className="text-lg">
+                  {reportPeriod === 'daily' ? 'Günlük' : reportPeriod === 'weekly' ? 'Haftalık' : 'Aylık'} Rapor Özeti
+                </CardTitle>
+                <Badge variant="secondary">{getPeriodLabel()}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-card border">
+                  <p className="text-xs text-muted-foreground mb-1">Toplam İşlem</p>
+                  <p className="text-2xl font-bold">{filteredTransactions.length}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-success/10 border border-success/20">
+                  <p className="text-xs text-muted-foreground mb-1">Toplam Gelir</p>
+                  <p className="text-2xl font-bold text-success">{formatCurrency(periodIncome)}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <p className="text-xs text-muted-foreground mb-1">Toplam Gider</p>
+                  <p className="text-2xl font-bold text-destructive">{formatCurrency(periodExpense)}</p>
+                </div>
+                <div className={`p-4 rounded-lg border ${periodNet >= 0 ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}>
+                  <p className="text-xs text-muted-foreground mb-1">Net Kar/Zarar</p>
+                  <p className={`text-2xl font-bold ${periodNet >= 0 ? 'text-success' : 'text-destructive'}`}>
+                    {periodNet >= 0 ? '+' : ''}{formatCurrency(periodNet)}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground mb-1">Nakit Gelir</p>
+                  <p className="text-lg font-semibold text-success">+{formatCurrency(convertToDisplay(periodCashIncome, 'TRY'))}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground mb-1">Nakit Gider</p>
+                  <p className="text-lg font-semibold text-destructive">-{formatCurrency(convertToDisplay(periodCashExpense, 'TRY'))}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-slide-up">
           <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
@@ -249,9 +415,11 @@ const Accounting = () => {
                 <div className="w-12 h-12 rounded-2xl bg-success/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <TrendingUp className="w-6 h-6 text-success" />
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">Toplam Gelir</span>
+                <span className="text-sm font-medium text-muted-foreground">
+                  {reportPeriod === 'all' ? 'Toplam' : reportPeriod === 'daily' ? 'Günlük' : reportPeriod === 'weekly' ? 'Haftalık' : 'Aylık'} Gelir
+                </span>
               </div>
-              <p className="text-2xl font-bold text-success">{formatCurrency(totalIncome)}</p>
+              <p className="text-2xl font-bold text-success">{formatCurrency(periodIncome)}</p>
             </CardContent>
           </Card>
 
@@ -261,9 +429,11 @@ const Accounting = () => {
                 <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <TrendingDown className="w-6 h-6 text-destructive" />
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">Toplam Gider</span>
+                <span className="text-sm font-medium text-muted-foreground">
+                  {reportPeriod === 'all' ? 'Toplam' : reportPeriod === 'daily' ? 'Günlük' : reportPeriod === 'weekly' ? 'Haftalık' : 'Aylık'} Gider
+                </span>
               </div>
-              <p className="text-2xl font-bold text-destructive">{formatCurrency(totalExpense)}</p>
+              <p className="text-2xl font-bold text-destructive">{formatCurrency(periodExpense)}</p>
             </CardContent>
           </Card>
         </div>
@@ -392,32 +562,43 @@ const Accounting = () => {
               <Card className="bg-card border-border">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Nakit Gelir</span>
+                    <span className="text-sm text-muted-foreground">
+                      {reportPeriod === 'all' ? 'Nakit Gelir' : `${reportPeriod === 'daily' ? 'Günlük' : reportPeriod === 'weekly' ? 'Haftalık' : 'Aylık'} Nakit Gelir`}
+                    </span>
                     <ArrowUpRight className="w-4 h-4 text-success" />
                   </div>
-                  <p className="text-xl font-bold mt-2 text-success">{formatCurrency(convertToDisplay(cashIncome, 'TRY'))}</p>
+                  <p className="text-xl font-bold mt-2 text-success">{formatCurrency(convertToDisplay(periodCashIncome, 'TRY'))}</p>
                 </CardContent>
               </Card>
               <Card className="bg-card border-border">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Nakit Gider</span>
+                    <span className="text-sm text-muted-foreground">
+                      {reportPeriod === 'all' ? 'Nakit Gider' : `${reportPeriod === 'daily' ? 'Günlük' : reportPeriod === 'weekly' ? 'Haftalık' : 'Aylık'} Nakit Gider`}
+                    </span>
                     <ArrowDownRight className="w-4 h-4 text-destructive" />
                   </div>
-                  <p className="text-xl font-bold mt-2 text-destructive">{formatCurrency(convertToDisplay(cashExpense, 'TRY'))}</p>
+                  <p className="text-xl font-bold mt-2 text-destructive">{formatCurrency(convertToDisplay(periodCashExpense, 'TRY'))}</p>
                 </CardContent>
               </Card>
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Nakit İşlemleri</CardTitle>
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span>Nakit İşlemleri</span>
+                  {reportPeriod !== 'all' && (
+                    <Badge variant="outline">{filteredCashTransactions.length} işlem</Badge>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                {cashTransactions.length === 0 ? (
+                {filteredCashTransactions.length === 0 ? (
                   <div className="text-center py-12">
                     <Banknote className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Henüz nakit işlem yok</p>
+                    <p className="text-muted-foreground">
+                      {reportPeriod === 'all' ? 'Henüz nakit işlem yok' : 'Bu dönemde nakit işlem yok'}
+                    </p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -431,7 +612,7 @@ const Accounting = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {cashTransactions.map((trans) => (
+                        {filteredCashTransactions.map((trans) => (
                           <TableRow key={trans.id} className="hover:bg-muted/50">
                             <TableCell>
                               <div className="flex items-center gap-2">
@@ -475,15 +656,25 @@ const Accounting = () => {
 
           <TabsContent value="transactions" className="mt-6">
             <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span>Tüm İşlemler</span>
+                  {reportPeriod !== 'all' && (
+                    <Badge variant="outline">{filteredTransactions.length} işlem</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
               <CardContent className="p-0">
                 {transLoading ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
                   </div>
-                ) : transactions.length === 0 ? (
+                ) : filteredTransactions.length === 0 ? (
                   <div className="text-center py-12">
                     <Wallet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Henüz işlem yok</p>
+                    <p className="text-muted-foreground">
+                      {reportPeriod === 'all' ? 'Henüz işlem yok' : 'Bu dönemde işlem yok'}
+                    </p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -498,7 +689,7 @@ const Accounting = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {transactions.map((trans) => (
+                        {filteredTransactions.map((trans) => (
                           <TableRow key={trans.id} className="hover:bg-muted/50">
                             <TableCell>
                               <div className="flex items-center gap-2">
