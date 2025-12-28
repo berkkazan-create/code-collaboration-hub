@@ -362,6 +362,241 @@ export type Database = {
         }
         Relationships: []
       }
+      service_attachments: {
+        Row: {
+          attachment_stage: string | null
+          created_at: string
+          description: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          service_record_id: string
+          user_id: string
+        }
+        Insert: {
+          attachment_stage?: string | null
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          service_record_id: string
+          user_id: string
+        }
+        Update: {
+          attachment_stage?: string | null
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          service_record_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_attachments_service_record_id_fkey"
+            columns: ["service_record_id"]
+            isOneToOne: false
+            referencedRelation: "service_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_status: Database["public"]["Enums"]["service_status"]
+          notes: string | null
+          previous_status: Database["public"]["Enums"]["service_status"] | null
+          service_record_id: string
+          user_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status: Database["public"]["Enums"]["service_status"]
+          notes?: string | null
+          previous_status?: Database["public"]["Enums"]["service_status"] | null
+          service_record_id: string
+          user_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["service_status"]
+          notes?: string | null
+          previous_status?: Database["public"]["Enums"]["service_status"] | null
+          service_record_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_history_service_record_id_fkey"
+            columns: ["service_record_id"]
+            isOneToOne: false
+            referencedRelation: "service_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_records: {
+        Row: {
+          accessories_received: string | null
+          assigned_technician_id: string | null
+          assigned_technician_name: string | null
+          completed_at: string | null
+          created_at: string
+          customer_address: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string
+          delivered_at: string | null
+          device_brand: string
+          device_color: string | null
+          device_imei: string | null
+          device_model: string
+          device_serial: string | null
+          diagnosis: string | null
+          entry_notes: string | null
+          estimated_cost: number | null
+          final_cost: number | null
+          has_scratches: boolean | null
+          has_warranty: boolean | null
+          id: string
+          parts_used: string | null
+          physical_condition: string | null
+          price_approved: boolean | null
+          price_approved_at: string | null
+          qc_entry_at: string | null
+          qc_entry_by: string | null
+          qc_entry_notes: string | null
+          qc_exit_at: string | null
+          qc_exit_by: string | null
+          qc_exit_notes: string | null
+          received_at: string | null
+          repair_description: string | null
+          reported_issue: string
+          scratch_locations: string | null
+          screen_password: string | null
+          status: Database["public"]["Enums"]["service_status"] | null
+          updated_at: string
+          user_id: string
+          warranty_duration_days: number | null
+          warranty_end_date: string | null
+          warranty_parts: string | null
+          warranty_start_date: string | null
+          warranty_terms: string | null
+          warranty_type: Database["public"]["Enums"]["warranty_type"] | null
+        }
+        Insert: {
+          accessories_received?: string | null
+          assigned_technician_id?: string | null
+          assigned_technician_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone: string
+          delivered_at?: string | null
+          device_brand: string
+          device_color?: string | null
+          device_imei?: string | null
+          device_model: string
+          device_serial?: string | null
+          diagnosis?: string | null
+          entry_notes?: string | null
+          estimated_cost?: number | null
+          final_cost?: number | null
+          has_scratches?: boolean | null
+          has_warranty?: boolean | null
+          id?: string
+          parts_used?: string | null
+          physical_condition?: string | null
+          price_approved?: boolean | null
+          price_approved_at?: string | null
+          qc_entry_at?: string | null
+          qc_entry_by?: string | null
+          qc_entry_notes?: string | null
+          qc_exit_at?: string | null
+          qc_exit_by?: string | null
+          qc_exit_notes?: string | null
+          received_at?: string | null
+          repair_description?: string | null
+          reported_issue: string
+          scratch_locations?: string | null
+          screen_password?: string | null
+          status?: Database["public"]["Enums"]["service_status"] | null
+          updated_at?: string
+          user_id: string
+          warranty_duration_days?: number | null
+          warranty_end_date?: string | null
+          warranty_parts?: string | null
+          warranty_start_date?: string | null
+          warranty_terms?: string | null
+          warranty_type?: Database["public"]["Enums"]["warranty_type"] | null
+        }
+        Update: {
+          accessories_received?: string | null
+          assigned_technician_id?: string | null
+          assigned_technician_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string
+          delivered_at?: string | null
+          device_brand?: string
+          device_color?: string | null
+          device_imei?: string | null
+          device_model?: string
+          device_serial?: string | null
+          diagnosis?: string | null
+          entry_notes?: string | null
+          estimated_cost?: number | null
+          final_cost?: number | null
+          has_scratches?: boolean | null
+          has_warranty?: boolean | null
+          id?: string
+          parts_used?: string | null
+          physical_condition?: string | null
+          price_approved?: boolean | null
+          price_approved_at?: string | null
+          qc_entry_at?: string | null
+          qc_entry_by?: string | null
+          qc_entry_notes?: string | null
+          qc_exit_at?: string | null
+          qc_exit_by?: string | null
+          qc_exit_notes?: string | null
+          received_at?: string | null
+          repair_description?: string | null
+          reported_issue?: string
+          scratch_locations?: string | null
+          screen_password?: string | null
+          status?: Database["public"]["Enums"]["service_status"] | null
+          updated_at?: string
+          user_id?: string
+          warranty_duration_days?: number | null
+          warranty_end_date?: string | null
+          warranty_parts?: string | null
+          warranty_start_date?: string | null
+          warranty_terms?: string | null
+          warranty_type?: Database["public"]["Enums"]["warranty_type"] | null
+        }
+        Relationships: []
+      }
       stock_movements: {
         Row: {
           account_id: string | null
@@ -538,6 +773,18 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      service_status:
+        | "pending_qc_entry"
+        | "qc_entry_approved"
+        | "assigned_technician"
+        | "waiting_price_approval"
+        | "repair_in_progress"
+        | "pending_qc_exit"
+        | "qc_exit_approved"
+        | "completed"
+        | "delivered"
+        | "cancelled"
+      warranty_type: "none" | "labor" | "parts" | "full"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -666,6 +913,19 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      service_status: [
+        "pending_qc_entry",
+        "qc_entry_approved",
+        "assigned_technician",
+        "waiting_price_approval",
+        "repair_in_progress",
+        "pending_qc_exit",
+        "qc_exit_approved",
+        "completed",
+        "delivered",
+        "cancelled",
+      ],
+      warranty_type: ["none", "labor", "parts", "full"],
     },
   },
 } as const
