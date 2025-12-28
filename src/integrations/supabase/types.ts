@@ -362,6 +362,99 @@ export type Database = {
         }
         Relationships: []
       }
+      qc_check_items: {
+        Row: {
+          category: string | null
+          check_type: string
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          check_type?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          check_type?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qc_check_results: {
+        Row: {
+          check_stage: string
+          checked_at: string | null
+          checked_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          passed: boolean | null
+          qc_check_item_id: string
+          service_record_id: string
+          user_id: string
+        }
+        Insert: {
+          check_stage: string
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          passed?: boolean | null
+          qc_check_item_id: string
+          service_record_id: string
+          user_id: string
+        }
+        Update: {
+          check_stage?: string
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          passed?: boolean | null
+          qc_check_item_id?: string
+          service_record_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_check_results_qc_check_item_id_fkey"
+            columns: ["qc_check_item_id"]
+            isOneToOne: false
+            referencedRelation: "qc_check_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_check_results_service_record_id_fkey"
+            columns: ["service_record_id"]
+            isOneToOne: false
+            referencedRelation: "service_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_attachments: {
         Row: {
           attachment_stage: string | null

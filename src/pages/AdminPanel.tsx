@@ -59,7 +59,23 @@ import {
   AlertTriangle,
   Eye,
   Pencil,
+  ClipboardCheck,
+  GripVertical,
 } from 'lucide-react';
+import {
+  useQCCheckItems,
+  QCCheckItem,
+  categoryLabels,
+  checkTypeLabels,
+} from '@/hooks/useQCCheckItems';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface UserPermissions {
   id?: string;
@@ -116,6 +132,7 @@ const defaultPermissions: UserPermissions = {
 const AdminPanel = () => {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const { createPermission, updatePermission } = useDataPermissions();
+  const { items: qcItems, isLoading: qcLoading, createItem, updateItem, deleteItem, toggleActive } = useQCCheckItems();
   const [users, setUsers] = useState<UserWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -126,6 +143,19 @@ const AdminPanel = () => {
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  
+  // QC Check Item state
+  const [qcDialogOpen, setQcDialogOpen] = useState(false);
+  const [editingQcItem, setEditingQcItem] = useState<QCCheckItem | null>(null);
+  const [deleteQcId, setDeleteQcId] = useState<string | null>(null);
+  const [qcForm, setQcForm] = useState({
+    name: '',
+    description: '',
+    category: 'genel',
+    check_type: 'both' as 'entry' | 'exit' | 'both',
+    is_required: true,
+    display_order: 0,
+  });
 
   const [userForm, setUserForm] = useState({
     email: '',
@@ -352,6 +382,54 @@ const AdminPanel = () => {
     setUserDialogOpen(true);
   };
 
+  const openNewQcItem = () => {
+    setEditingQcItem(null);
+    setQcForm({
+      name: '',
+      description: '',
+      category: 'genel',
+      check_type: 'both',
+      is_required: true,
+      display_order: qcItems.length + 1,
+    });
+    setQcDialogOpen(true);
+  };
+
+  const openEditQcItem = (item: QCCheckItem) => {
+    setEditingQcItem(item);
+    setQcForm({
+      name: item.name,
+      description: item.description || '',
+      category: item.category,
+      check_type: item.check_type,
+      is_required: item.is_required,
+      display_order: item.display_order,
+    });
+    setQcDialogOpen(true);
+  };
+
+  const handleSaveQcItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qcForm.name) return;
+    
+    if (editingQcItem) {
+      await updateItem.mutateAsync({
+        id: editingQcItem.id,
+        ...qcForm,
+      });
+    } else {
+      await createItem.mutateAsync(qcForm);
+    }
+    setQcDialogOpen(false);
+  };
+
+  const handleDeleteQcItem = async () => {
+    if (deleteQcId) {
+      await deleteItem.mutateAsync(deleteQcId);
+      setDeleteQcId(null);
+    }
+  };
+
   if (roleLoading || isLoading) {
     return (
       <Layout>
@@ -440,6 +518,10 @@ const AdminPanel = () => {
             <TabsTrigger value="users">
               <Users className="w-4 h-4 mr-2" />
               Kullanıcılar
+            </TabsTrigger>
+            <TabsTrigger value="qc-checks">
+              <ClipboardCheck className="w-4 h-4 mr-2" />
+              Kalite Kontrol
             </TabsTrigger>
             <TabsTrigger value="activity">
               <Activity className="w-4 h-4 mr-2" />
@@ -564,6 +646,108 @@ const AdminPanel = () => {
                     </TableBody>
                   </Table>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* QC Checks Tab */}
+          <TabsContent value="qc-checks" className="mt-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardCheck className="w-5 h-5" />
+                    Kalite Kontrol Öğeleri
+                  </CardTitle>
+                  <CardDescription>
+                    Cihaz teslim alırken ve teslim ederken kontrol edilecek öğeleri yönetin
+                  </CardDescription>
+                </div>
+                <Button onClick={openNewQcItem}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Yeni Kontrol Öğesi
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {qcLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : qcItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <ClipboardCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Henüz kontrol öğesi eklenmemiş</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-8">#</TableHead>
+                          <TableHead>Kontrol Adı</TableHead>
+                          <TableHead>Kategori</TableHead>
+                          <TableHead>Tür</TableHead>
+                          <TableHead>Zorunlu</TableHead>
+                          <TableHead>Aktif</TableHead>
+                          <TableHead className="text-right">İşlemler</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {qcItems.map((item) => (
+                          <TableRow key={item.id} className={!item.is_active ? 'opacity-50' : ''}>
+                            <TableCell className="font-mono text-xs">{item.display_order}</TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{categoryLabels[item.category] || item.category}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{checkTypeLabels[item.check_type]}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {item.is_required ? (
+                                <Badge className="bg-red-100 text-red-800 border-red-300">Zorunlu</Badge>
+                              ) : (
+                                <Badge variant="outline">Opsiyonel</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={item.is_active}
+                                onCheckedChange={(checked) => toggleActive.mutate({ id: item.id, is_active: checked })}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => openEditQcItem(item)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteQcId(item.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -802,6 +986,115 @@ const AdminPanel = () => {
                     Sıfırla ve Demo Başlat
                   </>
                 )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* QC Item Create/Edit Dialog */}
+        <Dialog open={qcDialogOpen} onOpenChange={setQcDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingQcItem ? 'Kontrol Öğesini Düzenle' : 'Yeni Kontrol Öğesi'}</DialogTitle>
+              <DialogDescription>
+                Kalite kontrol sürecinde kullanılacak kontrol öğesi
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSaveQcItem} className="space-y-4">
+              <div>
+                <Label>Kontrol Adı *</Label>
+                <Input
+                  value={qcForm.name}
+                  onChange={(e) => setQcForm({ ...qcForm, name: e.target.value })}
+                  placeholder="Ekran Kontrolü"
+                  required
+                />
+              </div>
+              <div>
+                <Label>Açıklama</Label>
+                <Textarea
+                  value={qcForm.description}
+                  onChange={(e) => setQcForm({ ...qcForm, description: e.target.value })}
+                  placeholder="Kontrol detayları..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Kategori</Label>
+                  <Select
+                    value={qcForm.category}
+                    onValueChange={(v) => setQcForm({ ...qcForm, category: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(categoryLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Kontrol Türü</Label>
+                  <Select
+                    value={qcForm.check_type}
+                    onValueChange={(v: 'entry' | 'exit' | 'both') => setQcForm({ ...qcForm, check_type: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(checkTypeLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Sıra No</Label>
+                  <Input
+                    type="number"
+                    value={qcForm.display_order}
+                    onChange={(e) => setQcForm({ ...qcForm, display_order: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Switch
+                    id="is_required"
+                    checked={qcForm.is_required}
+                    onCheckedChange={(checked) => setQcForm({ ...qcForm, is_required: checked })}
+                  />
+                  <Label htmlFor="is_required">Zorunlu</Label>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setQcDialogOpen(false)}>
+                  İptal
+                </Button>
+                <Button type="submit" disabled={createItem.isPending || updateItem.isPending}>
+                  {editingQcItem ? 'Güncelle' : 'Oluştur'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete QC Item Confirmation */}
+        <AlertDialog open={!!deleteQcId} onOpenChange={() => setDeleteQcId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Kontrol Öğesini Sil</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bu kontrol öğesini silmek istediğinizden emin misiniz? Bu öğe artık kalite kontrol sürecinde kullanılamayacaktır.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteQcItem} className="bg-destructive text-destructive-foreground">
+                Sil
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
