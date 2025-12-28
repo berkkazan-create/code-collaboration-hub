@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
 import { useAccounts, Account } from '@/hooks/useAccounts';
 import { useProductSerials, ProductSerial } from '@/hooks/useProductSerials';
 import { useTransactions, Transaction } from '@/hooks/useTransactions';
@@ -75,6 +76,7 @@ interface CartItem {
 const Sales = () => {
   const { user } = useAuth();
   const { products } = useProducts();
+  const { categories } = useCategories();
   const { accounts, createAccount } = useAccounts();
   const { inStockSerials, soldSerials, returnedSerials, sellSerial, returnSerial, cancelSale, findBySerial, updateSerial } = useProductSerials();
   const { salesTransactions, createTransaction, deleteTransaction } = useTransactions();
@@ -145,6 +147,14 @@ const Sales = () => {
   const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
 
   const addToCart = (product: any, serial?: ProductSerial) => {
+    const requiresSerialForProduct = !!categories.find(c => c.name === product.category)?.requires_serial;
+
+    // Prevent adding IMEI-required products without selecting a specific serial
+    if (requiresSerialForProduct && !serial) {
+      toast.error('Bu ürün için IMEI seçerek ekleme yapmalısınız (IMEI ile arayın).');
+      return;
+    }
+
     const existingItem = cart.find(item => 
       serial ? item.serial_id === serial.id : item.product_id === product.id && !item.serial_id
     );
