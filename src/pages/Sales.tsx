@@ -102,6 +102,9 @@ const Sales = () => {
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
   const [returnConfirmId, setReturnConfirmId] = useState<string | null>(null);
   const [restockConfirmId, setRestockConfirmId] = useState<string | null>(null);
+  const [multiReturnDialogOpen, setMultiReturnDialogOpen] = useState(false);
+  const [multiReturnTransaction, setMultiReturnTransaction] = useState<Transaction | null>(null);
+  const [selectedReturns, setSelectedReturns] = useState<string[]>([]);
   const [lastSaleData, setLastSaleData] = useState<{
     receiptNo: string;
     date: Date;
@@ -513,6 +516,51 @@ const Sales = () => {
     }
   };
 
+  const handleOpenMultiReturn = (transaction: Transaction) => {
+    const transactionSerials = soldSerials.filter(s => s.transaction_id === transaction.id);
+    if (transactionSerials.length === 0) {
+      toast.error('Bu satışta iade alınabilecek ürün bulunamadı.');
+      return;
+    }
+    setMultiReturnTransaction(transaction);
+    setSelectedReturns([]);
+    setMultiReturnDialogOpen(true);
+  };
+
+  const handleMultiReturn = async () => {
+    if (selectedReturns.length === 0) {
+      toast.error('En az bir ürün seçin');
+      return;
+    }
+
+    try {
+      for (const serialId of selectedReturns) {
+        await returnSerial.mutateAsync(serialId);
+      }
+      toast.success(`${selectedReturns.length} ürün iade alındı`);
+      setMultiReturnDialogOpen(false);
+      setMultiReturnTransaction(null);
+      setSelectedReturns([]);
+    } catch (error) {
+      toast.error('İade işlemi sırasında hata oluştu');
+    }
+  };
+
+  const toggleReturnSelection = (serialId: string) => {
+    setSelectedReturns(prev => 
+      prev.includes(serialId) 
+        ? prev.filter(id => id !== serialId)
+        : [...prev, serialId]
+    );
+  };
+
+  const selectAllReturns = () => {
+    if (multiReturnTransaction) {
+      const allSerials = soldSerials.filter(s => s.transaction_id === multiReturnTransaction.id);
+      setSelectedReturns(allSerials.map(s => s.id));
+    }
+  };
+
   const handleRestockSerial = async () => {
     if (restockConfirmId) {
       await updateSerial.mutateAsync({
@@ -592,12 +640,13 @@ const Sales = () => {
             {transactionSerials.length > 0 && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-orange-500 hover:text-orange-600"
-                onClick={() => setReturnConfirmId(transactionSerials[0].id)}
+                size="sm"
+                className="h-8 text-orange-500 hover:text-orange-600"
+                onClick={() => handleOpenMultiReturn(transaction)}
                 title="İade Al"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4 mr-1" />
+                İade ({transactionSerials.length})
               </Button>
             )}
             <Button
@@ -1287,6 +1336,111 @@ const Sales = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Multi-Return Dialog */}
+        <Dialog open={multiReturnDialogOpen} onOpenChange={setMultiReturnDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-orange-500" />
+                İade Alınacak Ürünleri Seçin
+              </DialogTitle>
+            </DialogHeader>
+            {multiReturnTransaction && (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>Satış Tarihi: {format(new Date(multiReturnTransaction.date), 'dd/MM/yyyy', { locale: tr })}</p>
+                  {multiReturnTransaction.accounts && (
+                    <p>Müşteri: {multiReturnTransaction.accounts.name}</p>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-medium">Ürünler</p>
+                  <Button variant="outline" size="sm" onClick={selectAllReturns}>
+                    Tümünü Seç
+                  </Button>
+                </div>
+
+                <div className="max-h-[300px] overflow-y-auto space-y-2">
+                  {soldSerials
+                    .filter(s => s.transaction_id === multiReturnTransaction.id)
+                    .map(serial => (
+                      <div
+                        key={serial.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                          selectedReturns.includes(serial.id)
+                            ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                            : 'border-border hover:border-muted-foreground'
+                        }`}
+                        onClick={() => toggleReturnSelection(serial.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{serial.products?.name}</p>
+                            <p className="text-xs text-muted-foreground">IMEI: {serial.serial_number}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-primary">
+                              {formatPrice(serial.sale_price)}
+                            </span>
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                              selectedReturns.includes(serial.id)
+                                ? 'bg-orange-500 border-orange-500 text-white'
+                                : 'border-muted-foreground'
+                            }`}>
+                              {selectedReturns.includes(serial.id) && (
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+
+                {selectedReturns.length > 0 && (
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="flex justify-between text-sm">
+                      <span>Seçilen Ürün:</span>
+                      <span className="font-semibold">{selectedReturns.length} adet</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span>Toplam İade Tutarı:</span>
+                      <span className="font-semibold text-orange-500">
+                        {formatPrice(
+                          soldSerials
+                            .filter(s => selectedReturns.includes(s.id))
+                            .reduce((sum, s) => sum + (s.sale_price || 0), 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setMultiReturnDialogOpen(false)}
+                  >
+                    Vazgeç
+                  </Button>
+                  <Button
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                    onClick={handleMultiReturn}
+                    disabled={selectedReturns.length === 0}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    İade Al ({selectedReturns.length})
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
